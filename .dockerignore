@@ -1,0 +1,11 @@
+.git
+__pycache__
+.pytest_cache
+*.py[cod]
+*.sqlite3
+.pixi
+.venv
+env
+build
+dist
+node_modules
