@@ -1,0 +1,11 @@
+[workspace]
+authors = ["Szilágyi Csaba <csabi32105@gmail.com>"]
+channels = ["conda-forge"]
+name = "cv-filter"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+django = ">=5.2.8,<6"
