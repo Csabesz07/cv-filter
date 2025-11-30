@@ -1,0 +1,60 @@
+{% extends "accounts/base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<h1>Welcome back</h1>
+<p class="subtitle">Sign in to manage your CV filters.</p>
+
+<div id="alert-container"></div>
+
+<form id="login-form">
+    <div>
+        <label for="username">Username</label>
+        <input id="username" name="username" placeholder="jane" required />
+    </div>
+    <div>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="••••••••" required />
+    </div>
+    <button type="submit">Sign in</button>
+</form>
+
+<p class="muted">
+    New here?
+    <a href="{% url 'register' %}">Create an account</a>
+</p>
+
+<script>
+const form = document.getElementById('login-form');
+const alerts = document.getElementById('alert-container');
+
+function showAlert(message, type = 'error') {
+    alerts.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+}
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    alerts.innerHTML = '';
+    const data = {
+        username: form.username.value.trim(),
+        password: form.password.value
+    };
+    try {
+        const res = await fetch('{% url "api-login" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const body = await res.json();
+        if (!res.ok) {
+            showAlert(body.detail || 'Invalid credentials');
+            return;
+        }
+        showAlert('Login successful. Token stored in sessionStorage.', 'success');
+        sessionStorage.setItem('access', body.access);
+        sessionStorage.setItem('refresh', body.refresh);
+    } catch (err) {
+        showAlert('Unexpected error. Please try again.');
+    }
+});
+</script>
+{% endblock %}

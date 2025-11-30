@@ -18,3 +18,10 @@ Local development now runs on PostgreSQL with a UUID-based custom user model.
    python manage.py migrate
    python manage.py runserver
    ```
+
+## Auth endpoints & screens
+- Web screens: `/login/` and `/register/` (responsive, store JWT tokens in `sessionStorage` after success).
+- API endpoints:
+  - `POST /api/auth/register/` with `username`, `email` (optional), `password`
+  - `POST /api/auth/login/` with `username`, `password`
+  - Responses include `access` and `refresh` JWT tokens plus user payload.
