@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Auth{% endblock %} | CV Filter</title>
+    <style>
+        :root {
+            --bg: #0d1b2a;
+            --card: #0f2438;
+            --accent: #3ddc97;
+            --muted: #b9c6d2;
+            --text: #e9eef4;
+            --danger: #ff6b6b;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Inter", system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at 20% 20%, #123, #0a1623 40%), radial-gradient(circle at 80% 0%, #123, #0d1b2a 35%), #0d1b2a;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: rgba(15, 36, 56, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+            padding: 2rem;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(6px);
+        }
+        h1 {
+            margin: 0 0 0.5rem;
+            font-size: 1.75rem;
+            letter-spacing: 0.02em;
+        }
+        p.subtitle {
+            margin: 0 0 1.5rem;
+            color: var(--muted);
+        }
+        form {
+            display: grid;
+            gap: 0.9rem;
+        }
+        label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 0.15rem;
+        }
+        input {
+            width: 100%;
+            padding: 0.75rem 0.85rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.15s ease, transform 0.15s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+        button {
+            margin-top: 0.25rem;
+            padding: 0.9rem 1rem;
+            background: linear-gradient(120deg, var(--accent), #30c084);
+            border: none;
+            border-radius: 12px;
+            color: #041018;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(61, 220, 151, 0.3);
+        }
+        .muted {
+            color: var(--muted);
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 0.75rem;
+        }
+        a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .alert {
+            border-radius: 10px;
+            padding: 0.75rem 0.9rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+        .alert-error {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            color: #ffc1c1;
+        }
+        .alert-success {
+            background: rgba(61, 220, 151, 0.08);
+            border: 1px solid rgba(61, 220, 151, 0.3);
+            color: #b5ffe2;
+        }
+        @media (max-width: 480px) {
+            .card { padding: 1.5rem; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <main class="card">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
