@@ -1,4 +1,4 @@
-name: CI (Build, Test, Deploy)
+name: CICD
 
 on:
   push:
@@ -14,6 +14,7 @@ jobs:
   test:
     name: Build and run tests
     runs-on: ubuntu-latest
+    environment: cicd
 
     services:
       postgres:
@@ -64,6 +65,7 @@ jobs:
   docker:
     name: Build Docker image
     runs-on: ubuntu-latest
+    environment: cicd
     needs: [test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
@@ -73,8 +75,6 @@ jobs:
       - name: Build Docker image
         run: docker build -t cv-filter:${{ github.sha }} .
 
-      # Optional: Push to GitHub Container Registry (GHCR) now,
-      # so later Azure deployment is just "pull image".
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -89,15 +89,3 @@ jobs:
           docker tag cv-filter:${{ github.sha }} $IMAGE:latest
           docker push $IMAGE:${{ github.sha }}
           docker push $IMAGE:latest
-
-  deploy:
-    name: Deploy (placeholder)
-    runs-on: ubuntu-latest
-    needs: [docker]
-    if: false  # flip to true once Azure target exists
-
-    steps:
-      - name: Deployment not configured yet
-        run: |
-          echo "Azure deployment target not created yet."
-          echo "When ready, enable this job and add Azure credentials + app name."
