@@ -3,7 +3,7 @@ Integration tests for complete scoring engine.
 """
 
 import unittest
-from cv_filter.ranking.scoring.weighted_aggregator import WeightedScoringEngine, create_scoring_engine
+from ranking.scoring.weighted_aggregator import WeightedScoringEngine, create_scoring_engine
 
 
 class TestWeightedScoringEngine(unittest.TestCase):
