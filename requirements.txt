@@ -3,3 +3,5 @@ psycopg2-binary>=2.9,<3
 pgvector
 djangorestframework>=3.15,<4
 djangorestframework-simplejwt>=5.4,<6
+python-docx>=0.8.11
+PyPDF2>=3.0
