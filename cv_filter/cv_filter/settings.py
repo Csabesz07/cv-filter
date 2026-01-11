@@ -37,6 +37,7 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split() or []
 
 INSTALLED_APPS = [
     'accounts',
+    'ranking',
     'rest_framework',
     'rest_framework_simplejwt',
     'django.contrib.admin',
@@ -91,6 +92,13 @@ if POSTGRES_DB:
             'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'cv_filter'),
             'HOST': os.environ.get('POSTGRES_HOST', 'db'),
             'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 
