@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/login";
 import "./login.css";
@@ -17,6 +17,7 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Login() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [alert, setAlert] = useState<AlertState | null>(null);
@@ -39,8 +40,14 @@ export default function Login() {
         body: JSON.stringify(payload),
       });
 
-      let body: { access?: string; refresh?: string; detail?: string } | null =
-        null;
+      let body:
+        | {
+            access?: string;
+            refresh?: string;
+            detail?: string;
+            user?: { username?: string; email?: string };
+          }
+        | null = null;
       try {
         body = await response.json();
       } catch {
@@ -61,11 +68,15 @@ export default function Login() {
       if (body?.refresh) {
         sessionStorage.setItem("refresh", body.refresh);
       }
+      if (body?.user) {
+        sessionStorage.setItem("user", JSON.stringify(body.user));
+      }
 
       setAlert({
         type: "success",
         message: "Login successful. Token stored in sessionStorage.",
       });
+      navigate("/home");
     } catch {
       setAlert({
         type: "error",

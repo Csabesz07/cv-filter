@@ -41,8 +41,16 @@ export default function Register() {
         body: JSON.stringify(payload),
       });
 
-      let body: { detail?: string; username?: string[]; email?: string[] } | null =
-        null;
+      let body:
+        | {
+            detail?: string;
+            username?: string[];
+            email?: string[];
+            user?: { username?: string; email?: string };
+            access?: string;
+            refresh?: string;
+          }
+        | null = null;
       try {
         body = await response.json();
       } catch {
@@ -63,6 +71,16 @@ export default function Register() {
         type: "success",
         message: "Account created. You can now sign in.",
       });
+
+      if (body?.user) {
+        sessionStorage.setItem("user", JSON.stringify(body.user));
+      }
+      if (body?.access) {
+        sessionStorage.setItem("access", body.access);
+      }
+      if (body?.refresh) {
+        sessionStorage.setItem("refresh", body.refresh);
+      }
     } catch {
       setAlert({
         type: "error",

@@ -1,0 +1,107 @@
+@import "./login.css";
+
+.home-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 20%, #112233, #0a1623 40%),
+    radial-gradient(circle at 80% 0%, #112233, #0d1b2a 35%),
+    var(--auth-bg);
+  color: var(--auth-text);
+}
+
+.home-nav {
+  position: sticky;
+  top: 0;
+  background: rgba(15, 36, 56, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.home-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  gap: 1rem;
+}
+
+.home-brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--auth-text);
+  text-decoration: none;
+}
+
+.home-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.home-link {
+  color: var(--auth-text);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.home-link:hover {
+  background: rgba(61, 220, 151, 0.12);
+  color: var(--auth-accent);
+}
+
+.home-user-pill {
+  background: rgba(61, 220, 151, 0.12);
+  color: var(--auth-accent);
+  border: 1px solid rgba(61, 220, 151, 0.18);
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.home-content {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 3rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.home-hero {
+  background: rgba(15, 36, 56, 0.9);
+  border-radius: 18px;
+  padding: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+.home-hero h1 {
+  margin: 0 0 0.75rem;
+  font-size: 2.4rem;
+}
+
+.home-hero p {
+  margin: 0;
+  color: var(--auth-muted);
+  font-size: 1.05rem;
+  max-width: 640px;
+}
+
+@media (max-width: 720px) {
+  .home-nav-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-hero {
+    padding: 2rem 1.75rem;
+  }
+
+  .home-hero h1 {
+    font-size: 2rem;
+  }
+}
