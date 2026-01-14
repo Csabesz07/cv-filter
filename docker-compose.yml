@@ -36,7 +36,8 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-  
+      - uploads_data:/app/uploads
+
   frontend:
     image: node:20-alpine
     working_dir: /app/frontend/cv-filter-fe
@@ -50,3 +51,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
