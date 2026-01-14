@@ -100,7 +100,7 @@ class RankingService:
         self,
         *,
         organization,
-        created_by: Optional[User],
+        created_by: Any,  # User model instance
         criteria: Dict[str, Any],
         bias_config: Optional[Dict[str, Any]] = None,
         candidate_filters: Optional[Dict[str, Any]] = None,

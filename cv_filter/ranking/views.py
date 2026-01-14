@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from accounts.models import RankingRun, RankingRunStatus
+from accounts.logging_service import AuditLogService
 from .serializers import (
     RankingCreateSerializer,
     RankingRunSerializer,
@@ -44,8 +45,35 @@ class RankingCreateView(APIView):
                 bias_config=bias_config,
                 candidate_filters=candidate_filters,
             )
+            
+            # Log ranking run creation
+            AuditLogService.log(
+                organization=org,
+                event_type='ranking.created',
+                entity_type='ranking_run',
+                entity_id=run.id,
+                actor_user=request.user,
+                description=f'Ranking run created with {len(criteria)} criteria',
+                metadata={
+                    'criteria_count': len(criteria),
+                    'has_bias_config': bias_config is not None,
+                    'status': run.status,
+                }
+            )
+            
         except Exception as e:
             logger.exception("Ranking run failed")
+            
+            # Log failure
+            AuditLogService.log(
+                organization=org,
+                event_type='ranking.failed',
+                entity_type='ranking_run',
+                actor_user=request.user,
+                description=f'Ranking run failed: {str(e)}',
+                metadata={'error': str(e)}
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         response = {

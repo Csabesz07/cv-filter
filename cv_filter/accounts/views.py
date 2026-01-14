@@ -12,7 +12,14 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import CVFile, Candidate
-from .serializers import CVUploadSerializer, LoginSerializer, RegisterSerializer
+from .serializers import (
+    CVUploadSerializer,
+    LoginSerializer,
+    RegisterSerializer,
+    AuditLogSerializer,
+    CVAccessEventSerializer,
+)
+from .logging_service import AuditLogService, CVAccessEventService
 
 User = get_user_model()
 
@@ -198,6 +205,122 @@ class CVUploadView(APIView):
             source_type='upload',
         )
 
+        # Log CV upload event
+        CVAccessEventService.log_cv_upload(
+            organization=organization,
+            candidate=candidate,
+            cv_file=cv_file,
+            actor_user=request.user,
+            metadata={
+                'file_size': file.size,
+                'mime_type': file.content_type,
+            },
+        )
+
         # Return response
         response_serializer = CVUploadSerializer(cv_file)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AuditLogListView(APIView):
+    """
+    API endpoint to query audit logs for the organization.
+    Supports filtering by event type, entity type, severity, etc.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get audit logs with optional filters.
+
+        Query parameters:
+        - event_type: Filter by event type
+        - entity_type: Filter by entity type
+        - severity: Filter by severity (log, debug, verbose)
+        - limit: Number of results (default 100, max 1000)
+        """
+        org = request.user.organization
+        if not org:
+            return Response(
+                {"detail": "User has no organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get query parameters
+        event_type = request.query_params.get('event_type')
+        entity_type = request.query_params.get('entity_type')
+        severity = request.query_params.get('severity')
+        limit = min(int(request.query_params.get('limit', 100)), 1000)
+
+        # Query logs
+        logs = AuditLogService.query_logs(
+            organization=org,
+            event_type=event_type,
+            entity_type=entity_type,
+            severity=severity,
+            limit=limit,
+        )
+
+        # Serialize and return
+        serializer = AuditLogSerializer(logs, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data,
+        })
+
+
+class CVAccessEventListView(APIView):
+    """
+    API endpoint to query CV access events for the organization.
+    Supports filtering by candidate, action, etc.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get CV access events with optional filters.
+
+        Query parameters:
+        - candidate_id: Filter by candidate UUID
+        - action: Filter by action type
+        - limit: Number of results (default 100, max 1000)
+        """
+        org = request.user.organization
+        if not org:
+            return Response(
+                {"detail": "User has no organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get query parameters
+        candidate_id = request.query_params.get('candidate_id')
+        action = request.query_params.get('action')
+        limit = min(int(request.query_params.get('limit', 100)), 1000)
+
+        # Get candidate if filtering
+        candidate = None
+        if candidate_id:
+            try:
+                candidate = Candidate.objects.get(id=candidate_id, organization=org)
+            except Candidate.DoesNotExist:
+                return Response(
+                    {"detail": "Candidate not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        # Query events
+        events = CVAccessEventService.query_events(
+            organization=org,
+            candidate=candidate,
+            action=action,
+            limit=limit,
+        )
+
+        # Serialize and return
+        serializer = CVAccessEventSerializer(events, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data,
+        })
