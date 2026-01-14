@@ -4,6 +4,7 @@ from pathlib import Path
 
 from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
+from django.utils import timezone
 from django.views.generic import TemplateView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -11,15 +12,21 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CVFile, Candidate
+from document_extraction.extract_data import CVTextExtractor
+from .models import CVFile, CVParse, CVParseStatus, Candidate
+from .logging_service import AuditLogService, CVAccessEventService
 from .serializers import (
-    CVUploadSerializer,
-    LoginSerializer,
-    RegisterSerializer,
     AuditLogSerializer,
     CVAccessEventSerializer,
-)
-from .logging_service import AuditLogService, CVAccessEventService
+    CVUploadSerializer,
+    CVFileListSerializer,
+    CandidateBasicSerializer,
+    CandidateCreateSerializer,
+    LoginSerializer,
+    OrganizationCreateSerializer,
+    OrganizationSelectSerializer,
+    OrganizationSerializer,
+    RegisterSerializer,
     UserUpdateSerializer,
 )
 
@@ -221,16 +228,57 @@ class CVUploadView(APIView):
 
         # Return response
         response_serializer = CVUploadSerializer(cv_file)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+        timeout_seconds = request.data.get('timeout_seconds')
+        save_to_file = request.data.get('save_to_file')
+        try:
+            timeout_seconds = int(timeout_seconds) if timeout_seconds else 30
+        except (TypeError, ValueError):
+            timeout_seconds = 30
+
+        save_to_file_flag = True
+        if isinstance(save_to_file, str):
+            save_to_file_flag = save_to_file.lower() in ('true', '1', 'yes', 'on')
+        elif isinstance(save_to_file, bool):
+            save_to_file_flag = save_to_file
+
+        extraction = CVTextExtractor(
+            timeout_seconds=timeout_seconds,
+            save_to_file=save_to_file_flag,
+        ).extract_text(str(Path('/app/uploads') / storage_path))
+
+        parse_status = (
+            CVParseStatus.SUCCEEDED if extraction.get('success') else CVParseStatus.FAILED
+        )
+        CVParse.objects.create(
+            organization=organization,
+            cv_file=cv_file,
+            parse_status=parse_status,
+            parser_name=extraction.get('method'),
+            parser_version='',
+            parsed_at=timezone.now(),
+            text_content=extraction.get('text', ''),
+            error_message=extraction.get('error'),
+        )
+
+        return Response(
+            {
+                **response_serializer.data,
+                'success': extraction.get('success', False),
+                'extracted_text': extraction.get('text', ''),
+                'metadata': extraction.get('metadata', {}),
+                'method': extraction.get('method'),
+                'output_file': extraction.get('output_file'),
+                'error': extraction.get('error'),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AuditLogListView(APIView):
     """
     API endpoint to query audit logs for the organization.
     Supports filtering by event type, entity type, severity, etc.
-class UserMeView(APIView):
-    """
-    API endpoint to get/update the current user.
     """
 
     permission_classes = [IsAuthenticated]
@@ -273,6 +321,25 @@ class UserMeView(APIView):
             'count': len(serializer.data),
             'results': serializer.data,
         })
+
+
+class UserMeView(APIView):
+    """
+    API endpoint to get/update the current user.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({'user': RegisterSerializer(request.user).data})
+
+    def patch(self, request):
+        serializer = UserUpdateSerializer(
+            data=request.data, context={'user': request.user}
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.update(request.user, serializer.validated_data)
+        return Response({'user': RegisterSerializer(user).data})
 
 
 class CVAccessEventListView(APIView):
@@ -423,12 +490,150 @@ class RankingEventListView(APIView):
                 stats['error_type'] = metadata.get('error_type')
 
         return stats
-        return Response({'user': RegisterSerializer(request.user).data})
+
+
+class OrganizationListCreateView(APIView):
+    """
+    API endpoint to list or create organizations.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        organizations = OrganizationSerializer(
+            self._get_organizations(), many=True
+        )
+        return Response({'results': organizations.data})
+
+    def post(self, request):
+        if request.user.organization:
+            return Response(
+                {'detail': 'User already belongs to an organization.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = OrganizationCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        organization = serializer.save()
+
+        request.user.organization = organization
+        request.user.save(update_fields=['organization'])
+
+        return Response(
+            {'organization': OrganizationSerializer(organization).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+    def _get_organizations(self):
+        return self._organization_queryset()
+
+    def _organization_queryset(self):
+        from accounts.models import Organization
+        return Organization.objects.all().order_by('name')
+
+
+class OrganizationSelectView(APIView):
+    """
+    API endpoint to assign the current user to an organization.
+    """
+
+    permission_classes = [IsAuthenticated]
 
     def patch(self, request):
-        serializer = UserUpdateSerializer(
-            data=request.data, context={'user': request.user}
-        )
+        serializer = OrganizationSelectSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.update(request.user, serializer.validated_data)
-        return Response({'user': RegisterSerializer(user).data})
+        organization = serializer.validated_data['organization_id']
+        request.user.organization = organization
+        request.user.save(update_fields=['organization'])
+        return Response({'organization': OrganizationSerializer(organization).data})
+
+
+class CandidateListCreateView(APIView):
+    """
+    API endpoint to list or create candidates within the user's organization.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        organization = request.user.organization
+        if not organization:
+            return Response(
+                {'detail': 'User has no organization.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        queryset = Candidate.objects.filter(organization=organization).order_by(
+            'first_name', 'last_name'
+        )
+        serializer = CandidateBasicSerializer(queryset, many=True)
+        return Response({'results': serializer.data})
+
+    def post(self, request):
+        organization = request.user.organization
+        if not organization:
+            return Response(
+                {'detail': 'User has no organization.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = CandidateCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        candidate = serializer.save(organization=organization)
+        return Response(
+            {'candidate': CandidateCreateSerializer(candidate).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CVFileListDeleteView(APIView):
+    """
+    API endpoint to list uploaded CV files and delete a file.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        organization = request.user.organization
+        if not organization:
+            return Response(
+                {'detail': 'User has no organization.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        queryset = CVFile.objects.filter(organization=organization).select_related(
+            'candidate'
+        )
+        serializer = CVFileListSerializer(queryset, many=True)
+        return Response({'results': serializer.data})
+
+    def delete(self, request, cv_file_id):
+        organization = request.user.organization
+        if not organization:
+            return Response(
+                {'detail': 'User has no organization.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            cv_file = CVFile.objects.get(id=cv_file_id, organization=organization)
+        except CVFile.DoesNotExist:
+            return Response({'detail': 'CV file not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        storage_path = Path('/app/uploads') / cv_file.storage_path
+        extracted_path = storage_path.with_name(
+            f"{storage_path.stem}_extracted.txt"
+        )
+
+        cv_file.cv_parses.all().delete()
+        cv_file.delete()
+
+        try:
+            if storage_path.exists():
+                storage_path.unlink()
+            if extracted_path.exists():
+                extracted_path.unlink()
+        except OSError:
+            pass
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

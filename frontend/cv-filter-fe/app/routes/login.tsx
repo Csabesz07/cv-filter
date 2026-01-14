@@ -64,9 +64,11 @@ export default function Login() {
 
       if (body?.access) {
         sessionStorage.setItem("access", body.access);
+        localStorage.setItem("access_token", body.access);
       }
       if (body?.refresh) {
         sessionStorage.setItem("refresh", body.refresh);
+        localStorage.setItem("refresh_token", body.refresh);
       }
       if (body?.user) {
         sessionStorage.setItem("user", JSON.stringify(body.user));

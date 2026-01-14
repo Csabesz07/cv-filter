@@ -2,6 +2,7 @@
 
 import logging
 import signal
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Optional, Any
@@ -38,8 +39,8 @@ def timeout(seconds):
     def timeout_handler(signum, frame):
         raise TimeoutException("Operation timed out")
 
-    # Set the signal handler and alarm
-    if hasattr(signal, "SIGALRM"):  # Unix/Linux/Mac
+    # Set the signal handler and alarm (main thread only)
+    if hasattr(signal, "SIGALRM") and threading.current_thread() is threading.main_thread():
         original_handler = signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(seconds)
         try:
@@ -47,7 +48,7 @@ def timeout(seconds):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, original_handler)
-    else:  # Windows - no timeout available
+    else:  # Windows or non-main thread - no timeout available
         yield
 
 

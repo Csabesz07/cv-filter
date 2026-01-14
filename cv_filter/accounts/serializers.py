@@ -2,7 +2,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import CVFile, Candidate, AuditLog, CVAccessEvent
+from django.utils.text import slugify
+
+from .models import CVFile, Candidate, Organization, AuditLog, CVAccessEvent
 
 User = get_user_model()
 
@@ -35,6 +37,55 @@ class LoginSerializer(serializers.Serializer):
 
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ('id', 'name', 'slug')
+        read_only_fields = ('id',)
+
+
+class OrganizationCreateSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    slug = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        name = attrs.get('name', '').strip()
+        slug = attrs.get('slug', '').strip()
+
+        if not name:
+            raise serializers.ValidationError({'name': 'Name is required.'})
+
+        if not slug:
+            slug = slugify(name)
+
+        if not slug:
+            raise serializers.ValidationError({'slug': 'Slug is required.'})
+
+        if Organization.objects.filter(slug=slug).exists():
+            raise serializers.ValidationError({'slug': 'Slug already exists.'})
+
+        attrs['name'] = name
+        attrs['slug'] = slug
+        return attrs
+
+    def create(self, validated_data):
+        return Organization.objects.create(
+            name=validated_data['name'],
+            slug=validated_data['slug'],
+        )
+
+
+class OrganizationSelectSerializer(serializers.Serializer):
+    organization_id = serializers.UUIDField()
+
+    def validate_organization_id(self, value):
+        try:
+            organization = Organization.objects.get(id=value)
+        except Organization.DoesNotExist:
+            raise serializers.ValidationError("Organization not found.")
+        return organization
 
 
 class UserUpdateSerializer(serializers.Serializer):
@@ -99,6 +150,13 @@ class CandidateBasicSerializer(serializers.ModelSerializer):
         model = Candidate
         fields = ('id', 'first_name', 'last_name', 'email')
         read_only_fields = fields
+
+
+class CandidateCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Candidate
+        fields = ('id', 'first_name', 'last_name', 'email')
+        read_only_fields = ('id',)
 
 
 class CVUploadSerializer(serializers.ModelSerializer):
@@ -171,6 +229,37 @@ class CVUploadSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+
+class CVFileListSerializer(serializers.ModelSerializer):
+    candidate = CandidateBasicSerializer(read_only=True)
+    extracted_text = serializers.SerializerMethodField()
+    parsed_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CVFile
+        fields = (
+            'id',
+            'candidate',
+            'organization',
+            'original_filename',
+            'mime_type',
+            'file_size_bytes',
+            'checksum',
+            'upload_status',
+            'uploaded_at',
+            'source_type',
+            'extracted_text',
+            'parsed_at',
+        )
+
+    def get_extracted_text(self, obj):
+        latest = obj.cv_parses.order_by('-created_at').first()
+        return latest.text_content if latest and latest.text_content else ''
+
+    def get_parsed_at(self, obj):
+        latest = obj.cv_parses.order_by('-created_at').first()
+        return latest.parsed_at if latest else None
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
