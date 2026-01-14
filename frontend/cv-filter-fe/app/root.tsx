@@ -1,10 +1,14 @@
+import { useEffect, useState } from "react";
 import {
   isRouteErrorResponse,
+  Link,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
+  useNavigate,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -42,7 +46,99 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  const navigate = useNavigate();
+  const [userLabel, setUserLabel] = useState("Guest");
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const raw = sessionStorage.getItem("user");
+    if (!raw) {
+      setUserLabel("Guest");
+      return;
+    }
+    try {
+      const user = JSON.parse(raw) as { username?: string; email?: string };
+      setUserLabel(user.username || user.email || "User");
+    } catch {
+      setUserLabel("User");
+    }
+  }, [location.pathname]);
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("access");
+    sessionStorage.removeItem("refresh");
+    sessionStorage.removeItem("user");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    navigate("/login");
+  };
+
+  return (
+    <>
+      <header className="border-b border-slate-800/80 bg-slate-950/80 text-slate-100 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+          <Link className="text-lg font-semibold tracking-wide" to="/home">
+            cv-filter
+          </Link>
+          <nav className="flex flex-wrap items-center gap-3 text-sm">
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/home"
+            >
+              Home
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/document-extraction"
+            >
+              Document Extraction
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/entity-extraction"
+            >
+              Entity Extraction
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/ranking"
+            >
+              Ranking
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/summarization"
+            >
+              Summarization
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/organization"
+            >
+              Organization
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/user"
+            >
+              {userLabel}
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full border border-slate-700 px-3 py-1 font-medium text-slate-300 hover:border-emerald-400/70 hover:text-emerald-200"
+            >
+              Logout
+            </button>
+          </nav>
+        </div>
+      </header>
+      <Outlet />
+    </>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

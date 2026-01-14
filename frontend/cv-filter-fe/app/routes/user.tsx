@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
 
 import type { Route } from "./+types/user";
 import "./user.css";
@@ -7,11 +6,6 @@ import "./user.css";
 type AlertState = {
   type: "error" | "success";
   message: string;
-};
-
-type StoredUser = {
-  username?: string;
-  email?: string;
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -22,28 +16,11 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function UserSettings() {
-  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [alert, setAlert] = useState<AlertState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const userLabel = useMemo(() => {
-    if (typeof window === "undefined") {
-      return "Guest";
-    }
-    const raw = sessionStorage.getItem("user");
-    if (!raw) {
-      return "Guest";
-    }
-    try {
-      const user = JSON.parse(raw) as StoredUser;
-      return user.username || user.email || "User";
-    } catch {
-      return "User";
-    }
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -67,7 +44,8 @@ export default function UserSettings() {
     event.preventDefault();
     setAlert(null);
 
-    const accessToken = sessionStorage.getItem("access");
+    const accessToken =
+      sessionStorage.getItem("access") || localStorage.getItem("access_token");
     if (!accessToken) {
       setAlert({ type: "error", message: "You need to sign in again." });
       return;
@@ -128,32 +106,8 @@ export default function UserSettings() {
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("access");
-    sessionStorage.removeItem("refresh");
-    sessionStorage.removeItem("user");
-    navigate("/login");
-  };
-
   return (
     <div className="user-page">
-      <header className="user-nav">
-        <div className="user-nav-inner">
-          <Link className="user-brand" to="/">
-            cv-filter
-          </Link>
-          <nav className="user-nav-links">
-            <Link className="user-link" to="/home">
-              Home
-            </Link>
-            <span className="user-pill">{userLabel}</span>
-            <button className="user-logout" type="button" onClick={handleLogout}>
-              Logout
-            </button>
-          </nav>
-        </div>
-      </header>
-
       <main className="user-content">
         <section className="user-card">
           <h1>User management</h1>

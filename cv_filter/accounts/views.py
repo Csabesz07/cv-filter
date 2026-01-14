@@ -15,6 +15,8 @@ from .models import CVFile, Candidate
 from .serializers import (
     CVUploadSerializer,
     LoginSerializer,
+    OrganizationCreateSerializer,
+    OrganizationSerializer,
     RegisterSerializer,
     UserUpdateSerializer,
 )
@@ -225,3 +227,30 @@ class UserMeView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.update(request.user, serializer.validated_data)
         return Response({'user': RegisterSerializer(user).data})
+
+
+class OrganizationCreateView(APIView):
+    """
+    API endpoint to create an organization for the current user.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.organization:
+            return Response(
+                {'detail': 'User already belongs to an organization.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = OrganizationCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        organization = serializer.save()
+
+        request.user.organization = organization
+        request.user.save(update_fields=['organization'])
+
+        return Response(
+            {'organization': OrganizationSerializer(organization).data},
+            status=status.HTTP_201_CREATED,
+        )

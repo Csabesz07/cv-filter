@@ -2,7 +2,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import CVFile, Candidate
+from django.utils.text import slugify
+
+from .models import CVFile, Candidate, Organization
 
 User = get_user_model()
 
@@ -35,6 +37,44 @@ class LoginSerializer(serializers.Serializer):
 
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ('id', 'name', 'slug')
+        read_only_fields = ('id',)
+
+
+class OrganizationCreateSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    slug = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        name = attrs.get('name', '').strip()
+        slug = attrs.get('slug', '').strip()
+
+        if not name:
+            raise serializers.ValidationError({'name': 'Name is required.'})
+
+        if not slug:
+            slug = slugify(name)
+
+        if not slug:
+            raise serializers.ValidationError({'slug': 'Slug is required.'})
+
+        if Organization.objects.filter(slug=slug).exists():
+            raise serializers.ValidationError({'slug': 'Slug already exists.'})
+
+        attrs['name'] = name
+        attrs['slug'] = slug
+        return attrs
+
+    def create(self, validated_data):
+        return Organization.objects.create(
+            name=validated_data['name'],
+            slug=validated_data['slug'],
+        )
 
 
 class UserUpdateSerializer(serializers.Serializer):
