@@ -2,3 +2,17 @@ INFO 2026-01-14 14:52:14,860 logging_service 56 127843365542784 [log] test.manua
 INFO 2026-01-14 14:53:23,942 logging_service 74 135126122044288 [log] ranking.run.started | org=test-org | user=testuser | entity=ranking_run:7e03b813-dd91-4ba2-900f-43dbd7f47696
 INFO 2026-01-14 14:53:34,160 logging_service 80 130273949420416 [log] ranking.run.completed | org=test-org | user=testuser | entity=ranking_run:ecde089b-0456-4461-ab7e-4e447cb0abb1
 INFO 2026-01-14 14:53:34,162 logging_service 80 130273949420416 [log] ranking.run.failed | org=test-org | user=testuser | entity=ranking_run:ecde089b-0456-4461-ab7e-4e447cb0abb1
+INFO 2026-01-14 18:36:56,270 logging_service 9 133755854382784 [log] http.post | org=Test | user=c@test.hu | entity=http_request:None
+INFO 2026-01-14 18:37:04,678 logging_service 9 133755854382784 [log] http.patch | org=Test | user=c@test.hu | entity=http_request:None
+INFO 2026-01-14 18:37:23,105 logging_service 9 133755854382784 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 18:42:17,005 logging_service 9 133755854382784 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:03:14,343 logging_service 9 131521262380736 [log] http.post | org=Test | user=c@test.hu | entity=http_request:None
+INFO 2026-01-14 19:07:41,079 logging_service 9 140682639435456 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:17:52,051 logging_service 9 136324757087936 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:21:31,472 logging_service 9 137122803078848 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:21:51,213 logging_service 9 137122803078848 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:22:08,564 logging_service 9 137122803078848 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:23:29,146 logging_service 9 138148270319296 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:23:31,732 logging_service 9 138148270319296 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:23:52,783 logging_service 9 138148270319296 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:24:25,665 logging_service 9 138148270319296 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None

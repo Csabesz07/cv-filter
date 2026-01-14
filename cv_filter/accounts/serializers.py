@@ -77,6 +77,17 @@ class OrganizationCreateSerializer(serializers.Serializer):
         )
 
 
+class OrganizationSelectSerializer(serializers.Serializer):
+    organization_id = serializers.UUIDField()
+
+    def validate_organization_id(self, value):
+        try:
+            organization = Organization.objects.get(id=value)
+        except Organization.DoesNotExist:
+            raise serializers.ValidationError("Organization not found.")
+        return organization
+
+
 class UserUpdateSerializer(serializers.Serializer):
     """
     Serializer to update username and/or password for the current user.
@@ -139,6 +150,13 @@ class CandidateBasicSerializer(serializers.ModelSerializer):
         model = Candidate
         fields = ('id', 'first_name', 'last_name', 'email')
         read_only_fields = fields
+
+
+class CandidateCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Candidate
+        fields = ('id', 'first_name', 'last_name', 'email')
+        read_only_fields = ('id',)
 
 
 class CVUploadSerializer(serializers.ModelSerializer):
@@ -211,6 +229,37 @@ class CVUploadSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+
+class CVFileListSerializer(serializers.ModelSerializer):
+    candidate = CandidateBasicSerializer(read_only=True)
+    extracted_text = serializers.SerializerMethodField()
+    parsed_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CVFile
+        fields = (
+            'id',
+            'candidate',
+            'organization',
+            'original_filename',
+            'mime_type',
+            'file_size_bytes',
+            'checksum',
+            'upload_status',
+            'uploaded_at',
+            'source_type',
+            'extracted_text',
+            'parsed_at',
+        )
+
+    def get_extracted_text(self, obj):
+        latest = obj.cv_parses.order_by('-created_at').first()
+        return latest.text_content if latest and latest.text_content else ''
+
+    def get_parsed_at(self, obj):
+        latest = obj.cv_parses.order_by('-created_at').first()
+        return latest.parsed_at if latest else None
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

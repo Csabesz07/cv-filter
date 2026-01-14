@@ -49,6 +49,10 @@ export default function App() {
   const navigate = useNavigate();
   const [userLabel, setUserLabel] = useState("Guest");
   const location = useLocation();
+  const hideHeader =
+    location.pathname === "/" ||
+    location.pathname === "/login" ||
+    location.pathname === "/register";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -78,64 +82,60 @@ export default function App() {
 
   return (
     <>
-      <header className="border-b border-slate-800/80 bg-slate-950/80 text-slate-100 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <Link className="text-lg font-semibold tracking-wide" to="/home">
-            cv-filter
-          </Link>
-          <nav className="flex flex-wrap items-center gap-3 text-sm">
+      {hideHeader ? null : (
+        <header className="border-b border-slate-800/80 bg-slate-950/80 text-slate-100 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+            <Link className="text-lg font-semibold tracking-wide" to="/home">
+              cv-filter
+            </Link>
+            <nav className="flex flex-wrap items-center gap-3 text-sm">
+              <Link
+                className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+                to="/home"
+              >
+                Home
+              </Link>
+              <Link
+                className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+                to="/document-extraction"
+              >
+                Document Extraction
+              </Link>
+              <Link
+                className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+                to="/organization"
+              >
+                Organization
+              </Link>
             <Link
               className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
-              to="/home"
+              to="/candidates"
             >
-              Home
+              Candidates
             </Link>
             <Link
               className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
-              to="/document-extraction"
+              to="/files"
             >
-              Document Extraction
+              Files
             </Link>
-            <Link
-              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
-              to="/entity-extraction"
-            >
-              Entity Extraction
-            </Link>
-            <Link
-              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
-              to="/ranking"
-            >
-              Ranking
-            </Link>
-            <Link
-              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
-              to="/summarization"
-            >
-              Summarization
-            </Link>
-            <Link
-              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
-              to="/organization"
-            >
-              Organization
-            </Link>
-            <Link
-              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
-              to="/user"
-            >
-              {userLabel}
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-full border border-slate-700 px-3 py-1 font-medium text-slate-300 hover:border-emerald-400/70 hover:text-emerald-200"
-            >
-              Logout
-            </button>
-          </nav>
-        </div>
-      </header>
+              <Link
+                className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+                to="/user"
+              >
+                {userLabel}
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-full border border-slate-700 px-3 py-1 font-medium text-slate-300 hover:border-emerald-400/70 hover:text-emerald-200"
+              >
+                Logout
+              </button>
+            </nav>
+          </div>
+        </header>
+      )}
       <Outlet />
     </>
   );

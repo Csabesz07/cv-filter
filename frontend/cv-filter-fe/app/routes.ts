@@ -7,8 +7,7 @@ export default [
   route("home", "routes/home.tsx"),
   route("user", "routes/user.tsx"),
   route("organization", "routes/organization.tsx"),
+  route("candidates", "routes/candidates.tsx"),
+  route("files", "routes/files.tsx"),
   route("document-extraction", "routes/document-extraction.tsx"),
-  route("entity-extraction", "routes/entity-extraction.tsx"),
-  route("ranking", "routes/ranking.tsx"),
-  route("summarization", "routes/summarization.tsx"),
 ] satisfies RouteConfig;

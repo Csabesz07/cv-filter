@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { Route } from "./+types/document-extraction";
 
@@ -9,6 +9,32 @@ type ExtractResponse = {
   method?: string;
   output_file?: string | null;
   error?: string;
+  id?: string;
+  candidate?: {
+    id?: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+  organization?: string;
+  original_filename?: string;
+  mime_type?: string;
+  file_size_bytes?: number;
+  checksum?: string;
+  upload_status?: string;
+  uploaded_at?: string;
+  source_type?: string;
+};
+
+type Candidate = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+};
+
+type CandidateListResponse = {
+  results?: Candidate[];
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -37,6 +63,9 @@ export default function DocumentExtraction() {
   const [file, setFile] = useState<File | null>(null);
   const [timeoutSeconds, setTimeoutSeconds] = useState(30);
   const [saveToFile, setSaveToFile] = useState(true);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState("");
+  const [isCandidatesLoading, setIsCandidatesLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<ExtractResponse | null>(null);
@@ -45,6 +74,40 @@ export default function DocumentExtraction() {
   const tokenWarning = useMemo(() => {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem("access_token");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const accessToken =
+      sessionStorage.getItem("access") || localStorage.getItem("access_token");
+    if (!accessToken) {
+      return;
+    }
+
+    const fetchCandidates = async () => {
+      setIsCandidatesLoading(true);
+      try {
+        const response = await fetch("/api/candidates/", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const contentType = response.headers.get("content-type") || "";
+        let body: CandidateListResponse | null = null;
+        if (contentType.includes("application/json")) {
+          body = (await response.json()) as CandidateListResponse;
+        }
+        if (response.ok) {
+          setCandidates(body?.results || []);
+        }
+      } catch {
+        // ignore fetch errors here, handled by user if no candidates
+      } finally {
+        setIsCandidatesLoading(false);
+      }
+    };
+
+    fetchCandidates();
   }, []);
 
   const fileInfo = file
@@ -83,6 +146,13 @@ export default function DocumentExtraction() {
     formData.append("file", file);
     formData.append("timeout_seconds", String(timeoutSeconds));
     formData.append("save_to_file", saveToFile ? "true" : "false");
+    if (selectedCandidateId) {
+      formData.append("candidate_id", selectedCandidateId);
+    } else {
+      setError("Select a candidate before extracting.");
+      setIsSubmitting(false);
+      return;
+    }
 
     const headers: HeadersInit = {};
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
@@ -115,6 +185,28 @@ export default function DocumentExtraction() {
         setError(body?.error || "Extraction failed.");
         setResult(body);
         return;
+      }
+
+      if (body && !body.metadata) {
+        body.metadata = {
+          id: body.id || "-",
+          candidate: body.candidate
+            ? `${body.candidate.first_name || ""} ${body.candidate.last_name || ""}`.trim() ||
+              body.candidate.email ||
+              "-"
+            : "-",
+          organization: body.organization || "-",
+          original_filename: body.original_filename || "-",
+          mime_type: body.mime_type || "-",
+          file_size_bytes: body.file_size_bytes ?? "-",
+          checksum: body.checksum || "-",
+          upload_status: body.upload_status || "-",
+          uploaded_at: body.uploaded_at || "-",
+          source_type: body.source_type || "-",
+        };
+      }
+      if (body && !body.method) {
+        body.method = "cv_upload";
       }
 
       setResult(body);
@@ -215,6 +307,31 @@ export default function DocumentExtraction() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-200">
+                  Candidate
+                </label>
+                <select
+                  value={selectedCandidateId}
+                  onChange={(event) => setSelectedCandidateId(event.target.value)}
+                  disabled={isCandidatesLoading}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                >
+                  <option value="">Select a candidate</option>
+                  {candidates.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.first_name} {candidate.last_name} • {candidate.email}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-slate-400">
+                  {isCandidatesLoading
+                    ? "Loading candidates..."
+                    : candidates.length
+                      ? "Select a candidate to associate the upload."
+                      : "No candidates found. Create one first."}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-200">
                   Timeout seconds
                 </label>
                 <input
@@ -291,6 +408,12 @@ export default function DocumentExtraction() {
                     value={result.extracted_text || ""}
                     className="mt-2 h-48 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-100"
                   />
+                  {!result.extracted_text ? (
+                    <p className="mt-2 text-xs text-slate-400">
+                      No extracted text returned. The backend responded with upload
+                      details only.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-2 text-sm">
