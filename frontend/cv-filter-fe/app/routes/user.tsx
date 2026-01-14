@@ -1,0 +1,214 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
+
+import type { Route } from "./+types/user";
+import "./user.css";
+
+type AlertState = {
+  type: "error" | "success";
+  message: string;
+};
+
+type StoredUser = {
+  username?: string;
+  email?: string;
+};
+
+export function meta({}: Route.MetaArgs) {
+  return [
+    { title: "User Settings | CV Filter" },
+    { name: "description", content: "Manage your CV Filter account." },
+  ];
+}
+
+export default function UserSettings() {
+  const navigate = useNavigate();
+  const [username, setUsername] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [alert, setAlert] = useState<AlertState | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const userLabel = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "Guest";
+    }
+    const raw = sessionStorage.getItem("user");
+    if (!raw) {
+      return "Guest";
+    }
+    try {
+      const user = JSON.parse(raw) as StoredUser;
+      return user.username || user.email || "User";
+    } catch {
+      return "User";
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const raw = sessionStorage.getItem("user");
+    if (!raw) {
+      return;
+    }
+    try {
+      const user = JSON.parse(raw) as StoredUser;
+      if (user.username) {
+        setUsername(user.username);
+      }
+    } catch {
+      // ignore invalid stored user
+    }
+  }, []);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAlert(null);
+
+    const accessToken = sessionStorage.getItem("access");
+    if (!accessToken) {
+      setAlert({ type: "error", message: "You need to sign in again." });
+      return;
+    }
+
+    const payload: {
+      username?: string;
+      current_password?: string;
+      new_password?: string;
+    } = {};
+
+    if (username.trim()) {
+      payload.username = username.trim();
+    }
+    if (newPassword.trim()) {
+      payload.new_password = newPassword;
+      payload.current_password = currentPassword;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/auth/me/", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const body = (await response.json()) as
+        | { user?: StoredUser; detail?: string; current_password?: string[] }
+        | undefined;
+
+      if (!response.ok) {
+        const message =
+          body?.detail ||
+          body?.current_password?.[0] ||
+          "Failed to update profile.";
+        setAlert({ type: "error", message });
+        return;
+      }
+
+      if (body?.user) {
+        sessionStorage.setItem("user", JSON.stringify(body.user));
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setAlert({ type: "success", message: "Profile updated." });
+    } catch {
+      setAlert({
+        type: "error",
+        message: "Unexpected error. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("access");
+    sessionStorage.removeItem("refresh");
+    sessionStorage.removeItem("user");
+    navigate("/login");
+  };
+
+  return (
+    <div className="user-page">
+      <header className="user-nav">
+        <div className="user-nav-inner">
+          <Link className="user-brand" to="/">
+            cv-filter
+          </Link>
+          <nav className="user-nav-links">
+            <Link className="user-link" to="/home">
+              Home
+            </Link>
+            <span className="user-pill">{userLabel}</span>
+            <button className="user-logout" type="button" onClick={handleLogout}>
+              Logout
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main className="user-content">
+        <section className="user-card">
+          <h1>User management</h1>
+          <p className="subtitle">Update your username or password.</p>
+
+          <div aria-live="polite">
+            {alert ? (
+              <div className={`auth-alert auth-alert-${alert.type}`}>
+                {alert.message}
+              </div>
+            ) : null}
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="username">Username</label>
+              <input
+                id="username"
+                name="username"
+                placeholder="jane"
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="current-password">Current password</label>
+              <input
+                id="current-password"
+                name="current-password"
+                type="password"
+                placeholder="********"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="new-password">New password</label>
+              <input
+                id="new-password"
+                name="new-password"
+                type="password"
+                placeholder="********"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+            </div>
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save changes"}
+            </button>
+          </form>
+        </section>
+      </main>
+    </div>
+  );
+}
