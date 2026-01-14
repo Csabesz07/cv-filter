@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import CVFile, Candidate
+from .models import CVFile, Candidate, AuditLog, CVAccessEvent
 
 User = get_user_model()
 
@@ -172,3 +172,62 @@ class CVUploadSerializer(serializers.ModelSerializer):
 
         return data
 
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    """
+    Serializer for audit logs.
+    Provides read-only access to audit log entries.
+    """
+
+    actor_username = serializers.CharField(source='actor_user.username', read_only=True)
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = (
+            'id',
+            'organization',
+            'organization_name',
+            'actor_user',
+            'actor_username',
+            'severity',
+            'event_type',
+            'entity_type',
+            'entity_id',
+            'description',
+            'metadata',
+            'created_at',
+        )
+        read_only_fields = fields
+
+
+class CVAccessEventSerializer(serializers.ModelSerializer):
+    """
+    Serializer for CV access events.
+    Provides read-only access to CV access tracking.
+    """
+
+    actor_username = serializers.CharField(source='actor_user.username', read_only=True)
+    candidate_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CVAccessEvent
+        fields = (
+            'id',
+            'organization',
+            'actor_user',
+            'actor_username',
+            'candidate',
+            'candidate_name',
+            'cv_file',
+            'cv_parse',
+            'action',
+            'channel',
+            'metadata',
+            'created_at',
+        )
+        read_only_fields = fields
+
+    def get_candidate_name(self, obj):
+        """Get full candidate name."""
+        return f"{obj.candidate.first_name} {obj.candidate.last_name}"

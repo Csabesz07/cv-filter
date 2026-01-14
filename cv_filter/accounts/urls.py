@@ -7,6 +7,9 @@ from .views import (
     LoginView,
     RegisterPageView,
     RegisterView,
+    AuditLogListView,
+    CVAccessEventListView,
+    RankingEventListView,
     UserMeView,
 )
 
@@ -16,6 +19,9 @@ urlpatterns = [
     path('api/auth/login/', LoginView.as_view(), name='api-login'),
     path('api/auth/me/', UserMeView.as_view(), name='api-user-me'),
     path('api/cv/upload/', CVUploadView.as_view(), name='api-cv-upload'),
+    path('api/audit/logs/', AuditLogListView.as_view(), name='api-audit-logs'),
+    path('api/audit/events/', CVAccessEventListView.as_view(), name='api-cv-access-events'),
+    path('api/audit/ranking/', RankingEventListView.as_view(), name='api-ranking-events'),
     path('login/', LoginPageView.as_view(), name='login'),
     path('register/', RegisterPageView.as_view(), name='register'),
 ]
