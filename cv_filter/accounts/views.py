@@ -12,7 +12,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import CVFile, Candidate
-from .serializers import CVUploadSerializer, LoginSerializer, RegisterSerializer
+from .serializers import (
+    CVUploadSerializer,
+    LoginSerializer,
+    RegisterSerializer,
+    UserUpdateSerializer,
+)
 
 User = get_user_model()
 
@@ -201,3 +206,22 @@ class CVUploadView(APIView):
         # Return response
         response_serializer = CVUploadSerializer(cv_file)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class UserMeView(APIView):
+    """
+    API endpoint to get/update the current user.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({'user': RegisterSerializer(request.user).data})
+
+    def patch(self, request):
+        serializer = UserUpdateSerializer(
+            data=request.data, context={'user': request.user}
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.update(request.user, serializer.validated_data)
+        return Response({'user': RegisterSerializer(user).data})

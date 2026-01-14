@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/home";
 import "./home.css";
@@ -17,6 +17,7 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
   const userLabel = useMemo(() => {
     if (typeof window === "undefined") {
       return "Guest";
@@ -35,6 +36,13 @@ export default function Home() {
     }
   }, []);
 
+  const handleLogout = () => {
+    sessionStorage.removeItem("access");
+    sessionStorage.removeItem("refresh");
+    sessionStorage.removeItem("user");
+    navigate("/login");
+  };
+
   return (
     <div className="home-page">
       <header className="home-nav">
@@ -46,7 +54,12 @@ export default function Home() {
             <Link className="home-link" to="/home">
               Home
             </Link>
-            <span className="home-user-pill">{userLabel}</span>
+            <Link className="home-user-pill" to="/user">
+              {userLabel}
+            </Link>
+            <button className="home-logout" type="button" onClick={handleLogout}>
+              Logout
+            </button>
           </nav>
         </div>
       </header>

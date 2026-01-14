@@ -37,6 +37,59 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+class UserUpdateSerializer(serializers.Serializer):
+    """
+    Serializer to update username and/or password for the current user.
+    """
+
+    username = serializers.CharField(required=False, allow_blank=False)
+    current_password = serializers.CharField(write_only=True, required=False)
+    new_password = serializers.CharField(write_only=True, required=False)
+
+    def validate_username(self, value):
+        user = self.context.get('user')
+        if not user:
+            return value
+        if User.objects.exclude(pk=user.pk).filter(username=value).exists():
+            raise serializers.ValidationError("Username is already taken.")
+        return value
+
+    def validate(self, attrs):
+        new_password = attrs.get('new_password')
+        current_password = attrs.get('current_password')
+        user = self.context.get('user')
+
+        if new_password:
+            if not current_password:
+                raise serializers.ValidationError(
+                    {"current_password": "Current password is required."}
+                )
+            if user and not user.check_password(current_password):
+                raise serializers.ValidationError(
+                    {"current_password": "Current password is incorrect."}
+                )
+            validate_password(new_password, user=user)
+
+        if not attrs.get('username') and not new_password:
+            raise serializers.ValidationError(
+                "Provide a username or a new password to update."
+            )
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        username = validated_data.get('username')
+        new_password = validated_data.get('new_password')
+
+        if username:
+            instance.username = username
+        if new_password:
+            instance.set_password(new_password)
+
+        instance.save()
+        return instance
+
+
 class CandidateBasicSerializer(serializers.ModelSerializer):
     """
     Minimal candidate information for CV upload response.
