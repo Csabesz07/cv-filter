@@ -16,3 +16,6 @@ INFO 2026-01-14 19:23:29,146 logging_service 9 138148270319296 [log] http.post |
 INFO 2026-01-14 19:23:31,732 logging_service 9 138148270319296 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
 INFO 2026-01-14 19:23:52,783 logging_service 9 138148270319296 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
 INFO 2026-01-14 19:24:25,665 logging_service 9 138148270319296 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:45:56,534 logging_service 9 140261963884224 [log] http.delete | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:46:19,468 logging_service 9 140261963884224 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
+INFO 2026-01-14 19:47:11,217 logging_service 9 140261963884224 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
