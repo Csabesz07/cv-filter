@@ -20,6 +20,8 @@ from .serializers import (
     CVAccessEventSerializer,
 )
 from .logging_service import AuditLogService, CVAccessEventService
+    UserUpdateSerializer,
+)
 
 User = get_user_model()
 
@@ -226,6 +228,9 @@ class AuditLogListView(APIView):
     """
     API endpoint to query audit logs for the organization.
     Supports filtering by event type, entity type, severity, etc.
+class UserMeView(APIView):
+    """
+    API endpoint to get/update the current user.
     """
 
     permission_classes = [IsAuthenticated]
@@ -418,3 +423,12 @@ class RankingEventListView(APIView):
                 stats['error_type'] = metadata.get('error_type')
 
         return stats
+        return Response({'user': RegisterSerializer(request.user).data})
+
+    def patch(self, request):
+        serializer = UserUpdateSerializer(
+            data=request.data, context={'user': request.user}
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.update(request.user, serializer.validated_data)
+        return Response({'user': RegisterSerializer(user).data})

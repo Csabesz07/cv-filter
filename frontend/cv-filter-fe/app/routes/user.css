@@ -1,0 +1,120 @@
+@import "./login.css";
+
+.user-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 20%, #112233, #0a1623 40%),
+    radial-gradient(circle at 80% 0%, #112233, #0d1b2a 35%),
+    var(--auth-bg);
+  color: var(--auth-text);
+}
+
+.user-nav {
+  position: sticky;
+  top: 0;
+  background: rgba(15, 36, 56, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.user-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  gap: 1rem;
+}
+
+.user-brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--auth-text);
+  text-decoration: none;
+}
+
+.user-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-link {
+  color: var(--auth-text);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.user-link:hover {
+  background: rgba(61, 220, 151, 0.12);
+  color: var(--auth-accent);
+}
+
+.user-pill {
+  background: rgba(61, 220, 151, 0.12);
+  color: var(--auth-accent);
+  border: 1px solid rgba(61, 220, 151, 0.18);
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.user-logout {
+  background: transparent;
+  color: var(--auth-muted);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.user-logout:hover {
+  color: var(--auth-accent);
+  border-color: rgba(61, 220, 151, 0.45);
+}
+
+.user-content {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 3rem;
+  display: flex;
+  justify-content: center;
+}
+
+.user-card {
+  background: rgba(15, 36, 56, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  padding: 2rem;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  max-width: 520px;
+}
+
+.user-card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  letter-spacing: 0.02em;
+}
+
+.user-card .subtitle {
+  margin: 0 0 1.5rem;
+  color: var(--auth-muted);
+}
+
+@media (max-width: 720px) {
+  .user-nav-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .user-card {
+    padding: 1.75rem;
+  }
+}
