@@ -1,9 +1,11 @@
 import logging
+import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from accounts.models import (
     Candidate,
@@ -13,6 +15,7 @@ from accounts.models import (
     CandidateScore,
     RankingRunStatus,
 )
+from accounts.logging_service import AuditLogService
 from .scoring.weighted_aggregator import create_scoring_engine
 
 logger = logging.getLogger(__name__)
@@ -106,6 +109,18 @@ class RankingService:
         candidate_filters: Optional[Dict[str, Any]] = None,
         max_candidates: int = 2000,
     ) -> RankingRun:
+        """
+        Start and execute a ranking run with detailed audit logging.
+        
+        Logs:
+        - Run start with criteria
+        - Candidate loading
+        - Individual scoring
+        - Run completion with statistics
+        - Any errors that occur
+        """
+        start_time = time.time()
+        
         # Create run
         run = RankingRun.objects.create(
             organization=organization,
@@ -114,51 +129,187 @@ class RankingService:
             bias_config_json=_to_primitive(bias_config or {}),
             status=RankingRunStatus.RUNNING,
             model_name="weighted-v1",
+            started_at=timezone.now(),
         )
 
-        # Fetch candidates within organization
-        qs = Candidate.objects.filter(organization=organization)
-        if candidate_filters and candidate_filters.get("status"):
-            qs = qs.filter(status__in=candidate_filters["status"])  # type: ignore
-
-        qs = qs.order_by("created_at")[:max_candidates]
-
-        candidates_data: List[Dict[str, Any]] = []
-        id_to_candidate: Dict[str, Candidate] = {}
-        for cand in qs:
-            data = self.mapper.build_candidate_data(cand)
-            candidates_data.append(data)
-            id_to_candidate[str(cand.id)] = cand
-
-        # Execute ranking
-        ranked = self.engine.rank_candidates(
-            candidates=candidates_data,
-            criteria=criteria,
-            weights=(bias_config if bias_config else None),
+        # Log run start
+        AuditLogService.log(
+            organization=organization,
+            event_type='ranking.run.started',
+            entity_type='ranking_run',
+            entity_id=run.id,
+            actor_user=created_by,
+            description=f'Ranking run started with ID {run.id}',
+            metadata={
+                'run_id': str(run.id),
+                'criteria': _to_primitive(criteria),
+                'has_bias_config': bias_config is not None,
+                'max_candidates': max_candidates,
+            }
         )
 
-        # Persist scores
-        for item in ranked:
-            cand_obj = id_to_candidate.get(item["id"])  # type: ignore
-            if not cand_obj:
-                continue
-            CandidateScore.objects.create(
+        try:
+            # Fetch candidates within organization
+            qs = Candidate.objects.filter(organization=organization)
+            if candidate_filters and candidate_filters.get("status"):
+                qs = qs.filter(status__in=candidate_filters["status"])  # type: ignore
+
+            qs = qs.order_by("created_at")[:max_candidates]
+            
+            # Log candidate loading
+            candidate_count = qs.count()
+            AuditLogService.debug(
                 organization=organization,
-                ranking_run=run,
-                candidate=cand_obj,
-                score=item["score"],
-                rank=item["rank"],
-                details_json=item.get("details", {}),
-                explanation=item.get("explanation", ""),
+                event_type='ranking.candidates.loaded',
+                entity_type='ranking_run',
+                entity_id=run.id,
+                actor_user=created_by,
+                description=f'Loaded {candidate_count} candidates for ranking',
+                metadata={
+                    'run_id': str(run.id),
+                    'candidate_count': candidate_count,
+                    'filters': candidate_filters or {},
+                }
             )
 
-        # Mark run complete
-        run.status = RankingRunStatus.COMPLETED
-        from django.utils import timezone
+            candidates_data: List[Dict[str, Any]] = []
+            id_to_candidate: Dict[str, Candidate] = {}
+            for cand in qs:
+                data = self.mapper.build_candidate_data(cand)
+                candidates_data.append(data)
+                id_to_candidate[str(cand.id)] = cand
 
-        run.completed_at = timezone.now()
-        run.save(update_fields=["status", "completed_at"])
-        return run
+            # Execute ranking
+            scoring_start = time.time()
+            ranked = self.engine.rank_candidates(
+                candidates=candidates_data,
+                criteria=criteria,
+                weights=(bias_config if bias_config else None),
+            )
+            scoring_duration = time.time() - scoring_start
+
+            # Log scoring completion
+            AuditLogService.debug(
+                organization=organization,
+                event_type='ranking.scoring.completed',
+                entity_type='ranking_run',
+                entity_id=run.id,
+                actor_user=created_by,
+                description=f'Scored {len(ranked)} candidates in {scoring_duration:.2f}s',
+                metadata={
+                    'run_id': str(run.id),
+                    'scored_count': len(ranked),
+                    'scoring_duration_seconds': round(scoring_duration, 2),
+                }
+            )
+
+            # Persist scores
+            scores_created = 0
+            score_stats = {
+                'min': None,
+                'max': None,
+                'avg': 0.0,
+            }
+            
+            all_scores = []
+            for item in ranked:
+                cand_obj = id_to_candidate.get(item["id"])  # type: ignore
+                if not cand_obj:
+                    continue
+                    
+                score_value = item["score"]
+                all_scores.append(score_value)
+                
+                CandidateScore.objects.create(
+                    organization=organization,
+                    ranking_run=run,
+                    candidate=cand_obj,
+                    score=score_value,
+                    rank=item["rank"],
+                    details_json=item.get("details", {}),
+                    explanation=item.get("explanation", ""),
+                )
+                scores_created += 1
+                
+                # Log individual candidate scoring (VERBOSE level)
+                AuditLogService.verbose(
+                    organization=organization,
+                    event_type='ranking.candidate.scored',
+                    entity_type='candidate',
+                    entity_id=cand_obj.id,
+                    actor_user=created_by,
+                    description=f'Candidate {cand_obj.first_name} {cand_obj.last_name} scored {score_value:.2f}',
+                    metadata={
+                        'run_id': str(run.id),
+                        'candidate_id': str(cand_obj.id),
+                        'score': float(score_value),
+                        'rank': item["rank"],
+                        'details': item.get("details", {}),
+                    }
+                )
+            
+            # Calculate statistics
+            if all_scores:
+                score_stats['min'] = float(min(all_scores))
+                score_stats['max'] = float(max(all_scores))
+                score_stats['avg'] = float(sum(all_scores) / len(all_scores))
+
+            # Mark run complete
+            run.status = RankingRunStatus.COMPLETED
+            run.completed_at = timezone.now()
+            run.save(update_fields=["status", "completed_at"])
+            
+            total_duration = time.time() - start_time
+            
+            # Log run completion with statistics
+            AuditLogService.log(
+                organization=organization,
+                event_type='ranking.run.completed',
+                entity_type='ranking_run',
+                entity_id=run.id,
+                actor_user=created_by,
+                description=f'Ranking run {run.id} completed successfully',
+                metadata={
+                    'run_id': str(run.id),
+                    'status': run.status,
+                    'candidates_evaluated': candidate_count,
+                    'scores_created': scores_created,
+                    'total_duration_seconds': round(total_duration, 2),
+                    'scoring_duration_seconds': round(scoring_duration, 2),
+                    'score_statistics': score_stats,
+                    'started_at': run.started_at.isoformat() if run.started_at else None,
+                    'completed_at': run.completed_at.isoformat() if run.completed_at else None,
+                }
+            )
+            
+            return run
+            
+        except Exception as e:
+            # Mark run as failed
+            run.status = RankingRunStatus.FAILED
+            run.completed_at = timezone.now()
+            run.save(update_fields=["status", "completed_at"])
+            
+            error_duration = time.time() - start_time
+            
+            # Log failure
+            AuditLogService.log(
+                organization=organization,
+                event_type='ranking.run.failed',
+                entity_type='ranking_run',
+                entity_id=run.id,
+                actor_user=created_by,
+                description=f'Ranking run {run.id} failed: {str(e)}',
+                metadata={
+                    'run_id': str(run.id),
+                    'error': str(e),
+                    'error_type': type(e).__name__,
+                    'duration_before_failure_seconds': round(error_duration, 2),
+                }
+            )
+            
+            logger.exception(f"Ranking run {run.id} failed")
+            raise
 
     def fetch_results(self, *, run: RankingRun) -> List[Dict[str, Any]]:
         scores = (

@@ -9,6 +9,7 @@ from .views import (
     RegisterView,
     AuditLogListView,
     CVAccessEventListView,
+    RankingEventListView,
 )
 
 urlpatterns = [
@@ -18,6 +19,7 @@ urlpatterns = [
     path('api/cv/upload/', CVUploadView.as_view(), name='api-cv-upload'),
     path('api/audit/logs/', AuditLogListView.as_view(), name='api-audit-logs'),
     path('api/audit/events/', CVAccessEventListView.as_view(), name='api-cv-access-events'),
+    path('api/audit/ranking/', RankingEventListView.as_view(), name='api-ranking-events'),
     path('login/', LoginPageView.as_view(), name='login'),
     path('register/', RegisterPageView.as_view(), name='register'),
 ]

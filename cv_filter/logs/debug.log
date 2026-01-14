@@ -1,0 +1,4 @@
+INFO 2026-01-14 14:52:14,860 logging_service 56 127843365542784 [log] test.manual | org=test-org | user=testuser | entity=test:None
+INFO 2026-01-14 14:53:23,942 logging_service 74 135126122044288 [log] ranking.run.started | org=test-org | user=testuser | entity=ranking_run:7e03b813-dd91-4ba2-900f-43dbd7f47696
+INFO 2026-01-14 14:53:34,160 logging_service 80 130273949420416 [log] ranking.run.completed | org=test-org | user=testuser | entity=ranking_run:ecde089b-0456-4461-ab7e-4e447cb0abb1
+INFO 2026-01-14 14:53:34,162 logging_service 80 130273949420416 [log] ranking.run.failed | org=test-org | user=testuser | entity=ranking_run:ecde089b-0456-4461-ab7e-4e447cb0abb1

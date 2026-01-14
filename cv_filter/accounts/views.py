@@ -324,3 +324,97 @@ class CVAccessEventListView(APIView):
             'count': len(serializer.data),
             'results': serializer.data,
         })
+
+
+class RankingEventListView(APIView):
+    """
+    API endpoint to query ranking-specific audit events.
+    Provides detailed tracking of ranking runs and their outcomes.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get ranking events with optional filters.
+
+        Query parameters:
+        - run_id: Filter by ranking run UUID
+        - event_type: Filter by event type (started, completed, failed, etc.)
+        - limit: Number of results (default 100, max 1000)
+        """
+        org = request.user.organization
+        if not org:
+            return Response(
+                {"detail": "User has no organization"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get query parameters
+        run_id = request.query_params.get('run_id')
+        event_type = request.query_params.get('event_type')
+        limit = min(int(request.query_params.get('limit', 100)), 1000)
+
+        # Build filter for ranking events
+        # All ranking events start with 'ranking.'
+        from accounts.models import AuditLog
+        
+        queryset = AuditLog.objects.filter(
+            organization=org,
+            event_type__startswith='ranking.'
+        )
+
+        # Filter by run_id if provided
+        if run_id:
+            queryset = queryset.filter(entity_id=run_id)
+
+        # Filter by specific event type
+        if event_type:
+            queryset = queryset.filter(event_type=event_type)
+
+        # Order and limit
+        queryset = queryset.order_by('-created_at')[:limit]
+
+        # Serialize and return
+        serializer = AuditLogSerializer(queryset, many=True)
+        
+        # Calculate statistics if filtering by run_id
+        stats = None
+        if run_id and serializer.data:
+            stats = self._calculate_run_stats(serializer.data)
+
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data,
+            'statistics': stats,
+        })
+
+    def _calculate_run_stats(self, events: list) -> dict:
+        """Calculate statistics from ranking run events."""
+        stats = {
+            'total_events': len(events),
+            'event_types': {},
+            'has_completion': False,
+            'has_failure': False,
+        }
+
+        for event in events:
+            event_type = event.get('event_type', '')
+            stats['event_types'][event_type] = stats['event_types'].get(event_type, 0) + 1
+
+            if 'completed' in event_type:
+                stats['has_completion'] = True
+                # Extract performance metrics from metadata
+                metadata = event.get('metadata', {})
+                stats['candidates_evaluated'] = metadata.get('candidates_evaluated')
+                stats['scores_created'] = metadata.get('scores_created')
+                stats['total_duration_seconds'] = metadata.get('total_duration_seconds')
+                stats['score_statistics'] = metadata.get('score_statistics')
+
+            if 'failed' in event_type:
+                stats['has_failure'] = True
+                metadata = event.get('metadata', {})
+                stats['error'] = metadata.get('error')
+                stats['error_type'] = metadata.get('error_type')
+
+        return stats
