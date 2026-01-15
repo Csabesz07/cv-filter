@@ -15,6 +15,9 @@ from .views import (
     CVAccessEventListView,
     RankingEventListView,
     UserMeView,
+    NLQParseView,
+    CandidateSearchView,
+    CandidateSummaryView
 )
 
 urlpatterns = [
@@ -33,4 +36,8 @@ urlpatterns = [
     path('api/audit/ranking/', RankingEventListView.as_view(), name='api-ranking-events'),
     path('login/', LoginPageView.as_view(), name='login'),
     path('register/', RegisterPageView.as_view(), name='register'),
+    path('api/nlq/parse/', NLQParseView.as_view(), name='api-nlq-parse'),
+    path('api/candidates/search/', CandidateSearchView.as_view(), name='api-candidate-search'),
+    path('api/candidates/<uuid:candidate_id>/summary/', CandidateSummaryView.as_view(), name='api-candidate-summary'),
+
 ]
