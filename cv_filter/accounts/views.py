@@ -637,3 +637,323 @@ class CVFileListDeleteView(APIView):
             pass
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+from django.db.models import OuterRef, Subquery, Q
+from rest_framework.permissions import IsAuthenticated
+
+from .models import (
+    CandidateStructuredData,
+    CVParse,
+    CandidateSummary,
+    SummaryStatus,
+    CVAccessAction,
+)
+from .serializers import (
+    NLQParseRequestSerializer,
+    NLQParseResponseSerializer,
+    CandidateSearchRequestSerializer,
+    CandidateSearchResultSerializer,
+    CandidateSummaryRequestSerializer,
+    CandidateSummaryResponseSerializer,
+)
+from .services.make_ai import parse_nlq, generate_summary, MakeAIError
+
+
+def _latest_structured_subquery(field_name: str):
+    latest_struct = CandidateStructuredData.objects.filter(
+        cv_parse__cv_file__candidate=OuterRef("pk")
+    ).order_by("-created_at")
+    return Subquery(latest_struct.values(field_name)[:1])
+
+
+def _compute_simple_score(
+    must_have: list[str],
+    nice_to_have: list[str],
+    keywords: list[str],
+    top_skills_text: str,
+    headline: str,
+    experience_years: float | None,
+    min_years: float | None,
+) -> tuple[float, str]:
+    text = f"{top_skills_text or ''} {headline or ''}".lower()
+
+    must = [s.strip().lower() for s in must_have if s.strip()]
+    nice = [s.strip().lower() for s in nice_to_have if s.strip()]
+    keys = [k.strip().lower() for k in keywords if k.strip()]
+
+    must_hits = sum(1 for s in must if s in text)
+    nice_hits = sum(1 for s in nice if s in text)
+    key_hits = sum(1 for k in keys if k in text)
+
+    must_ratio = (must_hits / max(len(must), 1)) if must else 1.0
+
+    years_ok = True
+    if min_years is not None:
+        if experience_years is None:
+            years_ok = False
+        else:
+            years_ok = float(experience_years) >= float(min_years)
+
+    score = 0.0
+    score += 60.0 * must_ratio
+    score += 20.0 * min(nice_hits, 5) / 5.0
+    score += 20.0 * min(key_hits, 5) / 5.0
+    if not years_ok:
+        score *= 0.4
+
+    expl = (
+        f"must_have_hits={must_hits}/{len(must)}; "
+        f"nice_hits={nice_hits}; keyword_hits={key_hits}; "
+        f"years_ok={years_ok}"
+    )
+    return round(score, 2), expl
+
+
+class NLQParseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        s = NLQParseRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+
+        try:
+            data = parse_nlq(
+                query=s.validated_data["query"],
+                language=s.validated_data.get("language", "hu"),
+            )
+        except MakeAIError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        out = NLQParseResponseSerializer(data=data)
+        if not out.is_valid():
+            return Response(
+                {"detail": "Invalid NLQ payload from Make", "errors": out.errors},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # audit: search action (opcionális, de jó)
+        org = request.user.organization
+        if org:
+            CVAccessEventService.log_event(
+                organization=org,
+                action=CVAccessAction.SEARCHED,
+                candidate=Candidate.objects.filter(organization=org).first(),  # hack: event schema candidate-kötött
+                actor_user=request.user,
+                channel="api",
+                metadata={"nlq": True},
+            )
+
+        return Response(out.validated_data, status=status.HTTP_200_OK)
+
+
+class CandidateSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        s = CandidateSearchRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        return self._search(request, s.validated_data)
+
+    def get(self, request):
+        payload = {
+            "must_have_skills": (request.query_params.get("must_have", "")).split(",") if request.query_params.get("must_have") else [],
+            "nice_to_have_skills": (request.query_params.get("nice_to_have", "")).split(",") if request.query_params.get("nice_to_have") else [],
+            "min_years_experience": request.query_params.get("min_years_experience"),
+            "location": request.query_params.get("location", ""),
+            "remote": request.query_params.get("remote"),
+            "keywords": (request.query_params.get("keywords", "")).split(",") if request.query_params.get("keywords") else [],
+            "sort": request.query_params.get("sort", "score_desc"),
+        }
+
+        if payload["min_years_experience"] not in (None, ""):
+            payload["min_years_experience"] = float(payload["min_years_experience"])
+        else:
+            payload["min_years_experience"] = None
+
+        if payload["remote"] in ("true", "1", "yes"):
+            payload["remote"] = True
+        elif payload["remote"] in ("false", "0", "no"):
+            payload["remote"] = False
+        else:
+            payload["remote"] = None
+
+        s = CandidateSearchRequestSerializer(data=payload)
+        s.is_valid(raise_exception=True)
+        return self._search(request, s.validated_data)
+
+    def _search(self, request, filters: dict):
+        org = request.user.organization
+        if not org:
+            return Response({"detail": "User has no organization."}, status=status.HTTP_403_FORBIDDEN)
+
+        must_have = filters.get("must_have_skills", [])
+        nice_to_have = filters.get("nice_to_have_skills", [])
+        min_years = filters.get("min_years_experience")
+        location = (filters.get("location") or "").strip()
+        keywords = filters.get("keywords", [])
+        sort = filters.get("sort", "score_desc")
+
+        qs = Candidate.objects.filter(organization=org)
+
+        qs = qs.annotate(
+            latest_headline=_latest_structured_subquery("headline"),
+            latest_primary_location=_latest_structured_subquery("primary_location"),
+            latest_experience_years=_latest_structured_subquery("experience_years"),
+            latest_top_skills=_latest_structured_subquery("top_skills"),
+        )
+
+        if location:
+            qs = qs.filter(Q(latest_primary_location__icontains=location))
+
+        if min_years is not None:
+            qs = qs.filter(latest_experience_years__gte=min_years)
+
+        for skill in [s.strip() for s in must_have if s.strip()]:
+            qs = qs.filter(
+                Q(latest_top_skills__icontains=skill) | Q(latest_headline__icontains=skill)
+            )
+
+        if keywords:
+            kw_q = Q()
+            for k in [x.strip() for x in keywords if x.strip()]:
+                kw_q |= Q(latest_top_skills__icontains=k) | Q(latest_headline__icontains=k)
+            qs = qs.filter(kw_q)
+
+        qs = qs[:200]
+
+        results = []
+        for c in qs:
+            exp = getattr(c, "latest_experience_years", None)
+            exp_f = float(exp) if exp is not None else None
+
+            score, expl = _compute_simple_score(
+                must_have=must_have,
+                nice_to_have=nice_to_have,
+                keywords=keywords,
+                top_skills_text=getattr(c, "latest_top_skills", "") or "",
+                headline=getattr(c, "latest_headline", "") or "",
+                experience_years=exp_f,
+                min_years=min_years,
+            )
+
+            results.append({
+                "id": c.id,
+                "first_name": c.first_name,
+                "last_name": c.last_name,
+                "email": c.email,
+                "status": c.status,
+                "headline": getattr(c, "latest_headline", "") or "",
+                "primary_location": getattr(c, "latest_primary_location", "") or "",
+                "experience_years": exp_f,
+                "top_skills": getattr(c, "latest_top_skills", "") or "",
+                "score": score,
+                "score_explanation": expl,
+            })
+
+        if sort == "experience_desc":
+            results.sort(key=lambda x: (x["experience_years"] is None, -(x["experience_years"] or 0)))
+        elif sort == "name_asc":
+            results.sort(key=lambda x: (x["last_name"].lower(), x["first_name"].lower()))
+        else:
+            results.sort(key=lambda x: -x["score"])
+
+        out = CandidateSearchResultSerializer(results, many=True)
+        return Response({"count": len(results), "results": out.data})
+
+
+class CandidateSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, candidate_id):
+        org = request.user.organization
+        if not org:
+            return Response({"detail": "User has no organization."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            candidate = Candidate.objects.get(id=candidate_id, organization=org)
+        except Candidate.DoesNotExist:
+            return Response({"detail": "Candidate not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        s = CandidateSummaryRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        language = s.validated_data.get("language", "hu")
+        job_text = s.validated_data.get("job_text")
+
+        latest_parse = CVParse.objects.filter(
+            organization=org,
+            cv_file__candidate=candidate,
+            text_content__isnull=False,
+        ).exclude(text_content="").order_by("-created_at").first()
+
+        if not latest_parse:
+            return Response({"detail": "No parsed CV text available for this candidate."}, status=status.HTTP_400_BAD_REQUEST)
+
+        cached = CandidateSummary.objects.filter(
+            organization=org,
+            candidate=candidate,
+            cv_parse=latest_parse,
+            language=language,
+            summary_status=SummaryStatus.SUCCEEDED,
+        ).order_by("-created_at").first()
+
+        if cached and cached.summary_text:
+            return Response({
+                "summary": cached.summary_text,
+                "highlights": [],
+                "risks": [],
+                "fit_score_explanation": "",
+            })
+
+        row = CandidateSummary.objects.create(
+            organization=org,
+            candidate=candidate,
+            cv_parse=latest_parse,
+            language=language,
+            summary_status=SummaryStatus.PENDING,
+            prompt_version="make_v1",
+        )
+
+        try:
+            ai = generate_summary(
+                cv_text=latest_parse.text_content or "",
+                language=language,
+                job_text=job_text,
+            )
+
+            resp = CandidateSummaryResponseSerializer(data=ai)
+            resp.is_valid(raise_exception=True)
+
+            row.summary_status = SummaryStatus.SUCCEEDED
+            row.summary_text = resp.validated_data["summary"]
+            row.generated_at = timezone.now()
+            row.model_name = ai.get("model_name", "make")
+            row.model_version = ai.get("model_version", "")
+            row.save(update_fields=[
+                "summary_status",
+                "summary_text",
+                "generated_at",
+                "model_name",
+                "model_version",
+                "updated_at",
+            ])
+
+            CVAccessEventService.log_event(
+                organization=org,
+                action=CVAccessAction.SUMMARY_GENERATED,
+                candidate=candidate,
+                actor_user=request.user,
+                cv_file=latest_parse.cv_file,
+                cv_parse=latest_parse,
+                channel="api",
+                metadata={"language": language, "prompt_version": "make_v1"},
+            )
+
+            return Response(resp.validated_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            row.summary_status = SummaryStatus.FAILED
+            row.error_message = str(e)
+            row.save(update_fields=["summary_status", "error_message", "updated_at"])
+            return Response({"detail": f"Summary generation failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
