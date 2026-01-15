@@ -320,3 +320,77 @@ class CVAccessEventSerializer(serializers.ModelSerializer):
     def get_candidate_name(self, obj):
         """Get full candidate name."""
         return f"{obj.candidate.first_name} {obj.candidate.last_name}"
+
+
+class NLQParseRequestSerializer(serializers.Serializer):
+    query = serializers.CharField()
+    language = serializers.CharField(required=False, default="hu")
+
+
+class NLQFiltersSerializer(serializers.Serializer):
+    must_have_skills = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    nice_to_have_skills = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    min_years_experience = serializers.FloatField(required=False, allow_null=True)
+    location = serializers.CharField(required=False, allow_blank=True, default="")
+    remote = serializers.BooleanField(required=False, allow_null=True)
+    keywords = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    sort = serializers.DictField(required=False, default=dict)
+
+
+class NLQParseResponseSerializer(serializers.Serializer):
+    filters = NLQFiltersSerializer()
+    raw = serializers.DictField(required=False, default=dict)
+
+
+class CandidateSearchRequestSerializer(serializers.Serializer):
+    must_have_skills = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    nice_to_have_skills = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    min_years_experience = serializers.FloatField(required=False, allow_null=True)
+    location = serializers.CharField(required=False, allow_blank=True, default="")
+    remote = serializers.BooleanField(required=False, allow_null=True)
+    keywords = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    sort = serializers.CharField(required=False, default="score_desc")
+
+
+class CandidateSearchResultSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.CharField()
+    status = serializers.CharField()
+    headline = serializers.CharField(allow_blank=True, required=False)
+    primary_location = serializers.CharField(allow_blank=True, required=False)
+    experience_years = serializers.FloatField(required=False, allow_null=True)
+    top_skills = serializers.CharField(allow_blank=True, required=False)
+    score = serializers.FloatField()
+    score_explanation = serializers.CharField()
+
+
+class CandidateSummaryRequestSerializer(serializers.Serializer):
+    language = serializers.CharField(required=False, default="hu")
+    job_text = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class CandidateSummaryResponseSerializer(serializers.Serializer):
+    summary = serializers.CharField()
+    highlights = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    risks = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    fit_score_explanation = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
