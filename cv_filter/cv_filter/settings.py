@@ -222,6 +222,14 @@ LOGGING = {
     },
 }
 
+# AI
+
+MAKE_NLQ_WEBHOOK_URL = os.environ.get("MAKE_NLQ_WEBHOOK_URL", "")
+MAKE_SUMMARY_WEBHOOK_URL = os.environ.get("MAKE_SUMMARY_WEBHOOK_URL", "")
+MAKE_WEBHOOK_SECRET = os.environ.get("MAKE_WEBHOOK_SECRET", "")
+MAKE_TIMEOUT_SECONDS = int(os.environ.get("MAKE_TIMEOUT_SECONDS", "20"))
+
+
 # Create logs directory if it doesn't exist
 import os
 logs_dir = BASE_DIR / 'logs'
