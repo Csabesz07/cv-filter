@@ -658,7 +658,7 @@ from .serializers import (
     CandidateSummaryRequestSerializer,
     CandidateSummaryResponseSerializer,
 )
-from .services.make_ai import parse_nlq, generate_summary, MakeAIError
+from .ai import parse_nlq, generate_summary, MakeAIError
 
 
 def _latest_structured_subquery(field_name: str):

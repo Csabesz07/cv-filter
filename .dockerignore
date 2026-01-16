@@ -9,3 +9,5 @@ env
 build
 dist
 node_modules
+frontend/cv-filter-fe/node_modules
+frontend/cv-filter-fe/node_modules/**
