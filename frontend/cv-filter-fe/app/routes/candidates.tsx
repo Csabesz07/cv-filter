@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { Route } from "./+types/candidates";
 
@@ -12,10 +12,35 @@ type CandidateResponse = {
   detail?: string;
 };
 
+type Candidate = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+};
+
+type CandidateListResponse = {
+  results?: Candidate[];
+  detail?: string;
+};
+
+type CVFile = {
+  id: string;
+  candidate: Candidate;
+  extracted_text: string;
+  parsed_at: string | null;
+  original_filename: string;
+};
+
+type CVFileListResponse = {
+  results?: CVFile[];
+  detail?: string;
+};
+
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Candidates | CV Filter" },
-    { name: "description", content: "Register a candidate." },
+    { name: "description", content: "Register and review candidates." },
   ];
 }
 
@@ -26,14 +51,157 @@ export default function Candidates() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [files, setFiles] = useState<CVFile[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
+    null
+  );
+
+  const accessToken = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem("access") || localStorage.getItem("access_token");
+  }, []);
+
+  const fetchCandidates = async () => {
+    if (!accessToken) {
+      setLoadError("You need to sign in to view candidates.");
+      return;
+    }
+    const response = await fetch("/api/candidates/", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const contentType = response.headers.get("content-type") || "";
+    let body: CandidateListResponse | null = null;
+    if (contentType.includes("application/json")) {
+      body = (await response.json()) as CandidateListResponse;
+    }
+    if (!response.ok) {
+      throw new Error(body?.detail || "Failed to load candidates.");
+    }
+    setCandidates(body?.results || []);
+  };
+
+  const fetchFiles = async () => {
+    if (!accessToken) {
+      return;
+    }
+    const response = await fetch("/api/cv/files/", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const contentType = response.headers.get("content-type") || "";
+    let body: CVFileListResponse | null = null;
+    if (contentType.includes("application/json")) {
+      body = (await response.json()) as CVFileListResponse;
+    }
+    if (!response.ok) {
+      throw new Error(body?.detail || "Failed to load extracted text.");
+    }
+    setFiles(body?.results || []);
+  };
+
+  const loadData = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      await Promise.all([fetchCandidates(), fetchFiles()]);
+    } catch (loadErr) {
+      setLoadError(
+        loadErr instanceof Error ? loadErr.message : "Failed to load candidates."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  const candidateSummaries = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        combinedText: string;
+        latestText: string;
+        parsedAt: string | null;
+        count: number;
+      }
+    >();
+
+    const byCandidate = new Map<string, CVFile[]>();
+    for (const file of files) {
+      const candidateId = file.candidate?.id;
+      if (!candidateId) continue;
+      const bucket = byCandidate.get(candidateId) || [];
+      bucket.push(file);
+      byCandidate.set(candidateId, bucket);
+    }
+
+    for (const [candidateId, bucket] of byCandidate.entries()) {
+      const texts = bucket.map((file) => file.extracted_text || "").filter(Boolean);
+      const combinedText = texts.join("\n\n");
+      const latestFile = bucket
+        .slice()
+        .sort((a, b) => {
+          const aTime = a.parsed_at ? Date.parse(a.parsed_at) : 0;
+          const bTime = b.parsed_at ? Date.parse(b.parsed_at) : 0;
+          return bTime - aTime;
+        })[0];
+      map.set(candidateId, {
+        combinedText,
+        latestText: latestFile?.extracted_text || "",
+        parsedAt: latestFile?.parsed_at || null,
+        count: bucket.length,
+      });
+    }
+
+    return candidates.map((candidate) => {
+      const summary = map.get(candidate.id);
+      return {
+        candidate,
+        combinedText: summary?.combinedText || "",
+        latestText: summary?.latestText || "",
+        parsedAt: summary?.parsedAt || null,
+        count: summary?.count || 0,
+      };
+    });
+  }, [candidates, files]);
+
+  const filteredCandidates = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) return candidateSummaries;
+    return candidateSummaries.filter((entry) => {
+      const name = `${entry.candidate.first_name} ${entry.candidate.last_name}`.trim();
+      const haystack = `${name} ${entry.candidate.email} ${entry.combinedText}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [candidateSummaries, searchQuery]);
+
+  useEffect(() => {
+    if (!selectedCandidateId && filteredCandidates.length) {
+      setSelectedCandidateId(filteredCandidates[0].candidate.id);
+      return;
+    }
+    if (
+      selectedCandidateId &&
+      !filteredCandidates.some((entry) => entry.candidate.id === selectedCandidateId)
+    ) {
+      setSelectedCandidateId(filteredCandidates[0]?.candidate.id || null);
+    }
+  }, [filteredCandidates, selectedCandidateId]);
+
+  const selectedCandidate =
+    filteredCandidates.find((entry) => entry.candidate.id === selectedCandidateId) ||
+    null;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage(null);
     setError(null);
 
-    const accessToken =
-      sessionStorage.getItem("access") || localStorage.getItem("access_token");
     if (!accessToken) {
       setError("You need to sign in to create a candidate.");
       return;
@@ -70,6 +238,7 @@ export default function Candidates() {
       setFirstName("");
       setLastName("");
       setEmail("");
+      await fetchCandidates();
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -79,71 +248,198 @@ export default function Candidates() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto max-w-4xl px-4 py-10">
+      <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold">Candidate registration</h1>
+          <h1 className="text-3xl font-semibold">Candidates</h1>
           <p className="text-sm text-slate-400">
-            Add a candidate by name and email.
+            Register candidates, browse extracted CV text, and search by keywords.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="text-sm font-medium text-slate-200">
-                First name
-              </label>
-              <input
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
-                value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                placeholder="Jane"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-200">
-                Last name
-              </label>
-              <input
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
-                value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
-                placeholder="Doe"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-200">Email</label>
-              <input
-                type="email"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="jane@example.com"
-                required
-              />
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold">Candidate registration</h2>
+                <p className="text-sm text-slate-400">
+                  Add a candidate by name and email.
+                </p>
+              </div>
+              <form className="space-y-4" onSubmit={handleSubmit}>
+                <div>
+                  <label className="text-sm font-medium text-slate-200">
+                    First name
+                  </label>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    placeholder="Jane"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-200">
+                    Last name
+                  </label>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    placeholder="Doe"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-200">Email</label>
+                  <input
+                    type="email"
+                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="jane@example.com"
+                    required
+                  />
+                </div>
+
+                {message ? (
+                  <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                    {message}
+                  </div>
+                ) : null}
+                {error ? (
+                  <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                    {error}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-emerald-400 px-5 py-2 text-sm font-semibold text-slate-900 transition enabled:hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? "Saving..." : "Create candidate"}
+                </button>
+              </form>
             </div>
 
-            {message ? (
-              <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                {message}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Candidate list</h2>
+                  <p className="text-sm text-slate-400">
+                    Search across names and extracted CV text.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => loadData()}
+                  className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:border-emerald-400/70 hover:text-emerald-200"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Refreshing..." : "Refresh"}
+                </button>
               </div>
-            ) : null}
-            {error ? (
-              <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                {error}
-              </div>
-            ) : null}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-xl bg-emerald-400 px-5 py-2 text-sm font-semibold text-slate-900 transition enabled:hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Saving..." : "Create candidate"}
-            </button>
-          </form>
+              {loadError ? (
+                <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  {loadError}
+                </div>
+              ) : null}
+
+              <div className="mt-4">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Search candidates
+                </label>
+                <input
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by name or extracted text"
+                />
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {filteredCandidates.length === 0 && !isLoading ? (
+                  <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
+                    No candidates found.
+                  </div>
+                ) : null}
+
+                {filteredCandidates.map((entry) => {
+                  const name = `${entry.candidate.first_name} ${entry.candidate.last_name}`.trim();
+                  return (
+                    <button
+                      key={entry.candidate.id}
+                      type="button"
+                      onClick={() => setSelectedCandidateId(entry.candidate.id)}
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                        selectedCandidateId === entry.candidate.id
+                          ? "border-emerald-400/60 bg-emerald-500/10"
+                          : "border-slate-800 bg-slate-950/40 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-slate-100">
+                        {name || entry.candidate.email}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {entry.candidate.email}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                        <span>CVs: {entry.count}</span>
+                        <span>
+                          Parsed:{" "}
+                          {entry.parsedAt
+                            ? new Date(entry.parsedAt).toLocaleString()
+                            : "Not parsed"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Extracted text</h2>
+              <p className="text-sm text-slate-400">
+                Latest extracted CV text for the selected candidate.
+              </p>
+            </div>
+
+            {selectedCandidate ? (
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-slate-200">
+                  {selectedCandidate.candidate.first_name}{" "}
+                  {selectedCandidate.candidate.last_name}
+                </div>
+                <div className="text-xs text-slate-400">
+                  {selectedCandidate.candidate.email}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {selectedCandidate.count
+                    ? `${selectedCandidate.count} CVs indexed`
+                    : "No CVs uploaded"}
+                </div>
+                <textarea
+                  readOnly
+                  value={selectedCandidate.latestText || ""}
+                  className="h-96 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-100"
+                />
+                {!selectedCandidate.latestText ? (
+                  <p className="text-xs text-slate-400">
+                    No extracted text available yet. Upload a CV to generate it.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
+                Select a candidate to see extracted text.
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </main>
