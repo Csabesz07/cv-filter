@@ -33,12 +33,12 @@ class CVEntityExtractor:
     - Qualifications (degrees, certifications)
     """
 
-    def __init__(self, spacy_model: str = "en_core_web_sm"):
+    def __init__(self, spacy_model: str = "xx_ent_wiki_sm"):
         """
         Initialize the entity extractor.
 
         Args:
-            spacy_model: SpaCy model to use (default: en_core_web_sm)
+            spacy_model: SpaCy model to use (default: xx_ent_wiki_sm - multilingual)
         """
         self.spacy_model = spacy_model
         self.nlp = self._load_spacy_model(spacy_model)

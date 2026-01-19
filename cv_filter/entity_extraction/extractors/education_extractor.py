@@ -5,7 +5,7 @@ import logging
 from typing import Dict, List
 from spacy.tokens import Doc
 
-from ..entity_lists import DEGREE_PATTERNS
+from ..entity_lists import ALL_DEGREE_PATTERNS
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class EducationExtractor:
         text_lower = text.lower()
 
         # Extract degrees using patterns
-        for degree in DEGREE_PATTERNS:
+        for degree in ALL_DEGREE_PATTERNS:
             pattern = r"\b" + re.escape(degree) + r"\b"
             if re.search(pattern, text_lower):
                 degrees.add(degree)

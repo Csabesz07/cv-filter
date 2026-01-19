@@ -10,9 +10,9 @@ from .entity_lists import (
     DATABASES,
     CLOUD_PLATFORMS,
     TOOLS,
-    SOFT_SKILLS,
     NATURAL_LANGUAGES,
-    JOB_TITLES,
+    ALL_JOB_TITLES,
+    ALL_SOFT_SKILLS,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,9 +41,9 @@ class MatcherFactory:
             ("DATABASE", DATABASES),
             ("CLOUD", CLOUD_PLATFORMS),
             ("TOOL", TOOLS),
-            ("SOFT_SKILL", SOFT_SKILLS),
+            ("SOFT_SKILL", ALL_SOFT_SKILLS),
             ("NATURAL_LANGUAGE", NATURAL_LANGUAGES),
-            ("JOB_TITLE", JOB_TITLES),
+            ("JOB_TITLE", ALL_JOB_TITLES),
         ]
 
         for category, terms in patterns_config:

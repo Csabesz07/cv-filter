@@ -370,3 +370,81 @@ JOB_TITLES = {
     "coordinator",
 }
 
+# --- HUNGARIAN KEYWORDS ---
+
+DEGREE_PATTERNS_HU = {
+    "alapdiploma",
+    "főiskolai diploma",
+    "egyetemi diploma",
+    "bsc",
+    "msc",
+    "mesterdiploma",
+    "doktori",
+    "phd",
+    "oklevél",
+    "bizonyítvány",
+    "szakképesítés",
+    "mérnök informatikus",
+    "programtervező informatikus",
+    "gazdaságinformatikus",
+}
+
+JOB_TITLES_HU = {
+    "szoftverfejlesztő",
+    "szoftvermérnök",
+    "frontend fejlesztő",
+    "backend fejlesztő",
+    "full-stack fejlesztő",
+    "webfejlesztő",
+    "mobilfejlesztő",
+    "adattudós",
+    "adatelemző",
+    "adatmérnök",
+    "gépi tanulás mérnök",
+    "devops mérnök",
+    "tesztmérnök",
+    "projektmenedzser",
+    "scrum master",
+    "csapatvezető",
+    "vezető fejlesztő",
+    "szenior fejlesztő",
+    "junior fejlesztő",
+    "gyakornok",
+    "tanácsadó",
+    "elemző",
+    "rendszergazda",
+    "koordinátor",
+    "hr menedzser",
+    "toborzó",
+}
+
+SOFT_SKILLS_HU = {
+    "vezetői készség",
+    "csapatjátékos",
+    "kommunikáció",
+    "problémamegoldás",
+    "analitikus gondolkodás",
+    "kritikus gondolkodás",
+    "kreativitás",
+    "időgazdálkodás",
+    "projektmenedzsment",
+    "agilis",
+    "scrum",
+    "együttműködés",
+    "alkalmazkodóképesség",
+    "rugalmasság",
+    "munkamorál",
+    "részletekre való odafigyelés",
+    "döntéshozatal",
+    "konfliktuskezelés",
+    "prezentáció",
+    "tárgyalás",
+    "ügyfélkiszolgálás",
+}
+
+# --- COMBINED KEYWORDS (English + Hungarian) ---
+
+ALL_DEGREE_PATTERNS = DEGREE_PATTERNS | DEGREE_PATTERNS_HU
+ALL_JOB_TITLES = JOB_TITLES | JOB_TITLES_HU
+ALL_SOFT_SKILLS = SOFT_SKILLS | SOFT_SKILLS_HU
+
