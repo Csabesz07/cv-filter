@@ -115,6 +115,12 @@ export default function App() {
             </Link>
             <Link
               className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/search"
+            >
+              Search
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
               to="/files"
             >
               Files

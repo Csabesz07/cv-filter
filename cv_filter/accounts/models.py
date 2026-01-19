@@ -3,6 +3,7 @@ import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
+from pgvector.django import VectorField
 
 
 class TimeStampedModel(models.Model):
@@ -431,6 +432,7 @@ class SearchDocument(TimeStampedModel):
     entity_id = models.UUIDField()
     source_text = models.TextField(null=True, blank=True)
     embedding_json = models.JSONField(null=True, blank=True)
+    embedding = VectorField(dimensions=384, null=True, blank=True)
     index_backend = models.CharField(
         max_length=20,
         choices=SearchIndexBackend.choices,

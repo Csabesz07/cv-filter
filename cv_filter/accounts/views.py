@@ -15,7 +15,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from document_extraction.extract_data import CVTextExtractor
 from entity_extraction.entity_extractor import CVEntityExtractor
-from .models import CVFile, CVParse, CVParseStatus, Candidate, CandidateStructuredData
+from .embedding_service import EmbeddingService
+from .local_nlq_parser import LocalNLQParser
+from .models import CVFile, CVParse, CVParseStatus, Candidate, CandidateStructuredData, SearchDocument, SearchEntityType
 from .logging_service import AuditLogService, CVAccessEventService
 from .serializers import (
     AuditLogSerializer,
@@ -290,6 +292,27 @@ class CVUploadView(APIView):
                 import logging
                 logger = logging.getLogger(__name__)
                 logger.error(f"Failed to extract entities: {str(e)}")
+        
+        # Generate embedding for semantic search
+        if extraction.get('success') and extraction.get('text'):
+            try:
+                embedding_vector = EmbeddingService.generate_embedding(extraction.get('text'))
+                if embedding_vector:
+                    SearchDocument.objects.update_or_create(
+                        organization=organization,
+                        entity_type=SearchEntityType.CANDIDATE,
+                        entity_id=candidate.id,
+                        defaults={
+                            'source_text': extraction.get('text')[:5000],  # Store first 5000 chars
+                            'embedding': embedding_vector,
+                            'index_status': 'indexed',
+                            'indexed_at': timezone.now(),
+                        }
+                    )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to generate embedding: {str(e)}")
 
         return Response(
             {
@@ -728,9 +751,9 @@ def _compute_simple_score(
             years_ok = float(experience_years) >= float(min_years)
 
     score = 0.0
-    score += 60.0 * must_ratio
-    score += 20.0 * min(nice_hits, 5) / 5.0
-    score += 20.0 * min(key_hits, 5) / 5.0
+    score += 0.60 * must_ratio
+    score += 0.20 * min(nice_hits, 5) / 5.0
+    score += 0.20 * min(key_hits, 5) / 5.0
     if not years_ok:
         score *= 0.4
 
@@ -749,13 +772,25 @@ class NLQParseView(APIView):
         s = NLQParseRequestSerializer(data=request.data)
         s.is_valid(raise_exception=True)
 
+        query = s.validated_data["query"]
+        language = s.validated_data.get("language", "hu")
+
+        # Try external AI service first (Make.com webhook)
         try:
-            data = parse_nlq(
-                query=s.validated_data["query"],
-                language=s.validated_data.get("language", "hu"),
-            )
+            data = parse_nlq(query=query, language=language)
         except MakeAIError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+            # Fallback to local NLQ parser
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Make.com webhook unavailable, using local NLQ parser: {e}")
+            
+            try:
+                data = LocalNLQParser.parse(query=query, language=language)
+            except Exception as parse_error:
+                return Response(
+                    {"detail": f"NLQ parsing failed: {str(parse_error)}"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
         out = NLQParseResponseSerializer(data=data)
         if not out.is_valid():
@@ -825,6 +860,35 @@ class CandidateSearchView(APIView):
         location = (filters.get("location") or "").strip()
         keywords = filters.get("keywords", [])
         sort = filters.get("sort", "score_desc")
+        
+        # If we have keywords, try vector search first
+        vector_scores = {}
+        if keywords:
+            query_text = " ".join([k.strip() for k in keywords if k.strip()])
+            if query_text:
+                try:
+                    query_embedding = EmbeddingService.generate_embedding(query_text)
+                    if query_embedding:
+                        # Use pgvector for semantic search
+                        from django.db.models import F
+                        from pgvector.django import CosineDistance
+                        
+                        search_docs = SearchDocument.objects.filter(
+                            organization=org,
+                            entity_type=SearchEntityType.CANDIDATE,
+                            embedding__isnull=False
+                        ).annotate(
+                            distance=CosineDistance('embedding', query_embedding)
+                        ).order_by('distance')[:50]
+                        
+                        # Convert distance to similarity score (0-1)
+                        for doc in search_docs:
+                            similarity = 1.0 - doc.distance
+                            vector_scores[str(doc.entity_id)] = max(0.0, similarity)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Vector search failed, falling back to text search: {e}")
 
         qs = Candidate.objects.filter(organization=org)
 
@@ -841,10 +905,12 @@ class CandidateSearchView(APIView):
         if min_years is not None:
             qs = qs.filter(latest_experience_years__gte=min_years)
 
-        for skill in [s.strip() for s in must_have if s.strip()]:
-            qs = qs.filter(
-                Q(latest_top_skills__icontains=skill) | Q(latest_headline__icontains=skill)
-            )
+        # Only apply strict skill filtering if no vector search is performed
+        if not vector_scores:
+            for skill in [s.strip() for s in must_have if s.strip()]:
+                qs = qs.filter(
+                    Q(latest_top_skills__icontains=skill) | Q(latest_headline__icontains=skill)
+                )
 
         if keywords:
             kw_q = Q()
@@ -868,6 +934,15 @@ class CandidateSearchView(APIView):
                 experience_years=exp_f,
                 min_years=min_years,
             )
+            
+            # Combine with vector score if available
+            candidate_id_str = str(c.id)
+            if candidate_id_str in vector_scores:
+                vector_score = vector_scores[candidate_id_str]
+                # Weighted combination: 60% text-based, 40% vector-based
+                combined_score = (0.6 * score) + (0.4 * vector_score)
+                expl += f" | Vector similarity: {vector_score:.2f}"
+                score = combined_score
 
             results.append({
                 "id": c.id,

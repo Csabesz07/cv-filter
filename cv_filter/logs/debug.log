@@ -26,3 +26,91 @@ INFO 2026-01-19 16:21:25,487 logging_service 20 138736836966080 [log] http.post 
 INFO 2026-01-19 16:38:53,973 logging_service 20 130392893707968 [log] http.delete | org=tech-startup | user=admin | entity=http_request:None
 INFO 2026-01-19 16:41:34,568 logging_service 20 134877570516672 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
 INFO 2026-01-19 16:42:03,532 logging_service 20 134877570516672 [log] http.post | org=tech-startup | user=admin | entity=cv_file:None
+INFO 2026-01-19 17:05:04,518 logging_service 20 128397338830528 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 17:05:26,975 logging_service 20 128397338830528 [log] http.post | org=tech-startup | user=admin | entity=cv_file:None
+INFO 2026-01-19 18:26:15,115 logging_service 42 140698809788096 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:26:17,327 logging_service 42 140698809788096 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:48:39,018 logging_service 42 138833772250816 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:48:39,040 logging_service 42 138833772250816 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:52:12,593 logging_service 42 132456485062336 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:52:12,629 logging_service 42 132456485062336 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:52:35,253 logging_service 42 132456485062336 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:52:35,272 embedding_service 42 132456485062336 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 18:52:42,726 embedding_service 42 132456485062336 Embedding model loaded successfully
+INFO 2026-01-19 18:52:42,819 logging_service 42 132456485062336 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:56:15,170 logging_service 42 135425861564096 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 18:56:15,188 embedding_service 42 135425861564096 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 18:56:22,524 embedding_service 42 135425861564096 Embedding model loaded successfully
+INFO 2026-01-19 18:56:22,591 logging_service 42 135425861564096 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:00:52,818 logging_service 42 136631292446400 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:00:52,836 embedding_service 42 136631292446400 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 19:00:59,957 embedding_service 42 136631292446400 Embedding model loaded successfully
+INFO 2026-01-19 19:00:59,994 logging_service 42 136631292446400 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:01:39,634 logging_service 42 136629738002112 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:01:39,680 logging_service 42 136629738002112 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:05:56,767 ai 42 128821616391872 Sending NLQ request to Make.com: {'query': 'Machine learning engineer with Python TensorFlow PyTorch', 'language': 'en'}
+INFO 2026-01-19 19:05:59,321 ai 42 128821616391872 Make.com NLQ response: {'filters': {'must_have_skills': ['python', 'tensorflow', 'pytorch'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['machine learning engineer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Machine learning engineer with Python TensorFlow PyTorch'}}
+INFO 2026-01-19 19:05:59,330 logging_service 42 128821616391872 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:05:59,350 embedding_service 42 128821616391872 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 19:06:06,363 embedding_service 42 128821616391872 Embedding model loaded successfully
+INFO 2026-01-19 19:06:06,415 logging_service 42 128821616391872 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:06:09,138 ai 42 128821616391872 Sending NLQ request to Make.com: {'query': 'Frontend developer with React and TypeScript', 'language': 'en'}
+INFO 2026-01-19 19:06:12,059 ai 42 128821616391872 Make.com NLQ response: {'filters': {'must_have_skills': ['react', 'typescript'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['frontend developer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Frontend developer with React and TypeScript'}}
+INFO 2026-01-19 19:06:12,069 logging_service 42 128821616391872 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:06:12,119 logging_service 42 128821616391872 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:12:24,356 logging_service 42 126156527359680 [log] http.delete | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:12:26,354 logging_service 42 126156527359680 [log] http.delete | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:12:51,796 logging_service 42 126156535752384 [log] http.delete | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:13:18,569 logging_service 42 126156527359680 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:13:56,069 embedding_service 42 126156544145088 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 19:14:03,150 embedding_service 42 126156544145088 Embedding model loaded successfully
+INFO 2026-01-19 19:14:03,315 logging_service 42 126156544145088 [log] http.post | org=tech-startup | user=admin | entity=cv_file:None
+INFO 2026-01-19 19:14:19,490 ai 42 126154715420352 Sending NLQ request to Make.com: {'query': 'Machine learning engineer with Python TensorFlow PyTorch', 'language': 'en'}
+INFO 2026-01-19 19:14:22,912 ai 42 126154715420352 Make.com NLQ response: {'filters': {'must_have_skills': ['python', 'tensorflow', 'pytorch'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['machine learning engineer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Machine learning engineer with Python TensorFlow PyTorch'}}
+INFO 2026-01-19 19:14:22,920 logging_service 42 126154715420352 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:14:22,967 logging_service 42 126154715420352 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:19:36,817 logging_service 42 128641133831872 [log] http.delete | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:26:19,137 logging_service 42 128641152714432 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:26:32,271 embedding_service 42 128641152714432 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 19:26:34,483 embedding_service 42 128641152714432 Embedding model loaded successfully
+INFO 2026-01-19 19:26:34,781 logging_service 42 128641152714432 [log] http.post | org=tech-startup | user=admin | entity=cv_file:None
+INFO 2026-01-19 19:27:30,241 logging_service 42 128640706660032 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:27:46,094 logging_service 42 128640706660032 [log] http.post | org=tech-startup | user=admin | entity=cv_file:None
+INFO 2026-01-19 19:27:52,636 ai 42 128640706660032 Sending NLQ request to Make.com: {'query': 'Machine learning engineer with Python TensorFlow PyTorch', 'language': 'en'}
+INFO 2026-01-19 19:27:55,071 ai 42 128640706660032 Make.com NLQ response: {'filters': {'must_have_skills': ['python', 'tensorflow', 'pytorch'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['machine learning engineer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Machine learning engineer with Python TensorFlow PyTorch'}}
+INFO 2026-01-19 19:27:55,079 logging_service 42 128640706660032 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:27:55,130 logging_service 42 128640706660032 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:30:31,705 ai 42 134377764976320 Sending NLQ request to Make.com: {'query': 'Machine learning engineer with Python TensorFlow PyTorch', 'language': 'en'}
+INFO 2026-01-19 19:30:35,145 ai 42 134377764976320 Make.com NLQ response: {'filters': {'must_have_skills': ['python', 'tensorflow', 'pytorch'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['machine learning', 'engineer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Machine learning engineer with Python TensorFlow PyTorch'}}
+INFO 2026-01-19 19:30:35,154 logging_service 42 134377764976320 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:30:35,173 embedding_service 42 134377764976320 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 19:30:42,371 embedding_service 42 134377764976320 Embedding model loaded successfully
+INFO 2026-01-19 19:30:42,418 logging_service 42 134377764976320 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:32:37,275 ai 42 127338646259392 Sending NLQ request to Make.com: {'query': 'Machine learning engineer with Python TensorFlow PyTorch', 'language': 'en'}
+INFO 2026-01-19 19:32:39,665 ai 42 127338646259392 Make.com NLQ response: {'filters': {'must_have_skills': ['python', 'tensorflow', 'pytorch'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['machine learning', 'engineer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Machine learning engineer with Python TensorFlow PyTorch'}}
+INFO 2026-01-19 19:32:39,680 logging_service 42 127338646259392 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:32:39,699 embedding_service 42 127338646259392 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 19:32:46,912 embedding_service 42 127338646259392 Embedding model loaded successfully
+INFO 2026-01-19 19:32:46,951 logging_service 42 127338646259392 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:33:49,686 ai 42 127337087596224 Sending NLQ request to Make.com: {'query': 'Data scientist with NLP and computer vision expertise', 'language': 'en'}
+INFO 2026-01-19 19:33:52,143 ai 42 127337087596224 Make.com NLQ response: {'filters': {'must_have_skills': ['nlp', 'computer vision'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['data scientist', 'expertise'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Data scientist with NLP and computer vision expertise'}}
+INFO 2026-01-19 19:33:52,151 logging_service 42 127337087596224 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:33:52,195 logging_service 42 127337087596224 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:33:55,102 ai 42 127337087596224 Sending NLQ request to Make.com: {'query': 'Frontend developer with React and TypeScript', 'language': 'en'}
+INFO 2026-01-19 19:33:58,291 ai 42 127337087596224 Make.com NLQ response: {'filters': {'must_have_skills': ['react', 'typescript'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['frontend developer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Frontend developer with React and TypeScript'}}
+INFO 2026-01-19 19:33:58,298 logging_service 42 127337087596224 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:33:58,341 logging_service 42 127337087596224 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:39:05,835 ai 120 137322408203968 Sending NLQ request to Make.com: {'query': 'Machine learning engineer with Python TensorFlow PyTorch', 'language': 'en'}
+INFO 2026-01-19 19:39:08,256 ai 120 137322408203968 Make.com NLQ response: {'filters': {'must_have_skills': ['python', 'tensorflow', 'pytorch'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['machine learning engineer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Machine learning engineer with Python TensorFlow PyTorch'}}
+INFO 2026-01-19 19:39:08,265 logging_service 120 137322408203968 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:39:08,285 embedding_service 120 137322408203968 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+INFO 2026-01-19 19:39:10,377 embedding_service 120 137322408203968 Embedding model loaded successfully
+INFO 2026-01-19 19:39:10,421 logging_service 120 137322408203968 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:39:13,275 ai 120 137322293049024 Sending NLQ request to Make.com: {'query': 'Frontend developer with React and TypeScript', 'language': 'en'}
+INFO 2026-01-19 19:39:15,817 ai 120 137322293049024 Make.com NLQ response: {'filters': {'must_have_skills': ['react', 'typescript'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['frontend developer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Frontend developer with React and TypeScript'}}
+INFO 2026-01-19 19:39:15,825 logging_service 120 137322293049024 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:39:15,867 logging_service 120 137322293049024 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:39:20,546 ai 120 137322293049024 Sending NLQ request to Make.com: {'query': 'Machine learning engineer with Python TensorFlow PyTorch', 'language': 'en'}
+INFO 2026-01-19 19:39:22,970 ai 120 137322293049024 Make.com NLQ response: {'filters': {'must_have_skills': ['python', 'tensorflow', 'pytorch'], 'nice_to_have_skills': [], 'min_years_experience': None, 'location': '', 'remote': None, 'keywords': ['machine learning engineer'], 'sort': {'by': 'score', 'dir': 'desc'}}, 'raw': {'original_query': 'Machine learning engineer with Python TensorFlow PyTorch'}}
+INFO 2026-01-19 19:39:22,979 logging_service 120 137322293049024 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 19:39:23,020 logging_service 120 137322293049024 [log] http.post | org=tech-startup | user=admin | entity=http_request:None

@@ -340,7 +340,6 @@ class NLQFiltersSerializer(serializers.Serializer):
     keywords = serializers.ListField(
         child=serializers.CharField(), required=False, default=list
     )
-    sort = serializers.DictField(required=False, default=dict)
 
 
 class NLQParseResponseSerializer(serializers.Serializer):

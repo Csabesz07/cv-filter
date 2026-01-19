@@ -1,6 +1,9 @@
 import json
+import logging
 import requests
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 class MakeAIError(RuntimeError):
@@ -19,6 +22,8 @@ def parse_nlq(query: str, language: str = "hu") -> dict:
         raise MakeAIError("MAKE_NLQ_WEBHOOK_URL is not set")
 
     payload = {"query": query, "language": language}
+    logger.info(f"Sending NLQ request to Make.com: {payload}")
+    
     try:
         r = requests.post(
             url,
@@ -28,10 +33,13 @@ def parse_nlq(query: str, language: str = "hu") -> dict:
         )
         r.raise_for_status()
         data = r.json()
+        logger.info(f"Make.com NLQ response: {data}")
     except (requests.RequestException, json.JSONDecodeError) as e:
+        logger.error(f"Make.com NLQ failed: {e}")
         raise MakeAIError(f"NLQ parse failed: {e}") from e
 
     if not isinstance(data, dict) or "filters" not in data:
+        logger.error(f"Invalid Make.com response structure: {data}")
         raise MakeAIError("Invalid NLQ response (missing 'filters')")
     return data
 

@@ -27,6 +27,10 @@ services:
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
+      MAKE_NLQ_WEBHOOK_URL: "https://hook.eu2.make.com/ici0w3yicefmfxj7qyfc0rlg7lxittav"
+      MAKE_SUMMARY_WEBHOOK_URL: "https://hook.eu2.make.com/q9ajt9ig532lhx083cv5wqr6zo324dd0"
+      MAKE_WEBHOOK_SECRET: "${MAKE_WEBHOOK_SECRET:-}"
+      MAKE_TIMEOUT_SECONDS: "15"
     depends_on:
       db:
         condition: service_healthy

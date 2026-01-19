@@ -1,4 +1,5 @@
 import type { Route } from "./+types/home";
+import { Link } from "react-router";
 import "./home.css";
 
 export function meta({}: Route.MetaArgs) {
@@ -84,9 +85,11 @@ export default function Home() {
             <article className="home-feature-card">
               <h3>Candidate search</h3>
               <p>
-                Search across the candidate list by skills, role history, or
-                keywords to pinpoint the best fit quickly.
+                Use natural language queries to find candidates matching specific requirements (e.g., "3 years Java + English B2").
               </p>
+              <Link to="/search" className="text-blue-400 hover:text-blue-300 text-sm">
+                Try Natural Language Search →
+              </Link>
             </article>
           </div>
         </section>
