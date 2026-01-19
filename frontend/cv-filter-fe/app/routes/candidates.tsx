@@ -311,6 +311,34 @@ export default function Candidates() {
     }
   };
 
+  const handleDeleteCandidate = async (candidateId: string) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      // Handle case where user is not authenticated
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/candidates/${candidateId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        // On successful deletion, refresh the candidate list
+        loadData();
+        setSelectedCandidateId(null);
+      } else {
+        // Handle error
+        console.error('Failed to delete candidate');
+      }
+    } catch (error) {
+      console.error('An error occurred while deleting the candidate:', error);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-6xl px-4 py-10">
@@ -706,6 +734,21 @@ export default function Candidates() {
               ) : (
                 <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
                   Select a candidate to see structured data.
+                </div>
+              )}
+
+              {selectedCandidate && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this candidate? This will permanently delete all associated data (CVs, analyses).')) {
+                        handleDeleteCandidate(selectedCandidate.candidate.id);
+                      }
+                    }}
+                    className="rounded-md bg-red-600 px-3 py-1 text-sm font-semibold text-white hover:bg-red-700"
+                  >
+                    Delete Candidate
+                  </button>
                 </div>
               )}
             </div>

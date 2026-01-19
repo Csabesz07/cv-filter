@@ -23,3 +23,6 @@ INFO 2026-01-16 11:53:43,060 logging_service 9 130438899721920 [log] http.delete
 INFO 2026-01-16 11:53:59,168 logging_service 9 130438899721920 [log] http.post | org=Test | user=c@test.hu | entity=cv_file:None
 INFO 2026-01-19 16:21:06,840 logging_service 20 138736846407360 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
 INFO 2026-01-19 16:21:25,487 logging_service 20 138736836966080 [log] http.post | org=tech-startup | user=admin | entity=cv_file:None
+INFO 2026-01-19 16:38:53,973 logging_service 20 130392893707968 [log] http.delete | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 16:41:34,568 logging_service 20 134877570516672 [log] http.post | org=tech-startup | user=admin | entity=http_request:None
+INFO 2026-01-19 16:42:03,532 logging_service 20 134877570516672 [log] http.post | org=tech-startup | user=admin | entity=cv_file:None

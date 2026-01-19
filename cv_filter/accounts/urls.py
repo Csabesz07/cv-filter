@@ -19,6 +19,7 @@ from .views import (
     CandidateSearchView,
     CandidateSummaryView,
     CandidateStructuredDataView,
+    CandidateDetailView,
 )
 
 urlpatterns = [
@@ -41,5 +42,5 @@ urlpatterns = [
     path('api/candidates/search/', CandidateSearchView.as_view(), name='api-candidate-search'),
     path('api/candidates/<uuid:candidate_id>/summary/', CandidateSummaryView.as_view(), name='api-candidate-summary'),
     path('api/candidates/<uuid:candidate_id>/structured/', CandidateStructuredDataView.as_view(), name='api-candidate-structured'),
-
+    path('api/candidates/<uuid:pk>/', CandidateDetailView.as_view(), name='api-candidate-detail'),
 ]

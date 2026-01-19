@@ -4,6 +4,7 @@ from pathlib import Path
 
 from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
+from django.http import Http404
 from django.utils import timezone
 from django.views.generic import TemplateView
 from rest_framework import status
@@ -1032,4 +1033,26 @@ class CandidateStructuredDataView(APIView):
         from .serializers import CandidateStructuredDataSerializer
         serializer = CandidateStructuredDataSerializer(latest_data)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateDetailView(APIView):
+    """
+    Retrieve, update or delete a candidate instance.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk):
+        try:
+            return Candidate.objects.get(pk=pk)
+        except Candidate.DoesNotExist:
+            raise Http404
+
+    def delete(self, request, pk, format=None):
+        candidate = self.get_object(pk)
+        # Check if the user belongs to the same organization as the candidate
+        if candidate.organization != request.user.organization:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        
+        candidate.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
