@@ -13,7 +13,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from document_extraction.extract_data import CVTextExtractor
-from .models import CVFile, CVParse, CVParseStatus, Candidate
+from entity_extraction.entity_extractor import CVEntityExtractor
+from .models import CVFile, CVParse, CVParseStatus, Candidate, CandidateStructuredData
 from .logging_service import AuditLogService, CVAccessEventService
 from .serializers import (
     AuditLogSerializer,
@@ -250,7 +251,7 @@ class CVUploadView(APIView):
         parse_status = (
             CVParseStatus.SUCCEEDED if extraction.get('success') else CVParseStatus.FAILED
         )
-        CVParse.objects.create(
+        cv_parse = CVParse.objects.create(
             organization=organization,
             cv_file=cv_file,
             parse_status=parse_status,
@@ -261,6 +262,34 @@ class CVUploadView(APIView):
             error_message=extraction.get('error'),
         )
 
+        # Extract entities if text extraction succeeded
+        entities_data = None
+        if extraction.get('success') and extraction.get('text'):
+            try:
+                entity_extractor = CVEntityExtractor()
+                entities = entity_extractor.extract_entities(extraction.get('text'))
+                
+                # Save structured data
+                CandidateStructuredData.objects.create(
+                    organization=organization,
+                    cv_parse=cv_parse,
+                    structured_json=entities.to_dict(),
+                    headline=' | '.join(entities.job_titles[:3]) if entities.job_titles else None,
+                    primary_location=None,  # Could be extracted from contact info if available
+                    top_skills=', '.join(
+                        (entities.programming_languages or [])[:5] + 
+                        (entities.frameworks or [])[:5]
+                    )[:255] if entities.programming_languages or entities.frameworks else None,
+                    experience_years=None,  # Could be calculated from experience dates
+                )
+                
+                entities_data = entities.to_dict()
+            except Exception as e:
+                # Log error but don't fail the upload
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to extract entities: {str(e)}")
+
         return Response(
             {
                 **response_serializer.data,
@@ -270,6 +299,7 @@ class CVUploadView(APIView):
                 'method': extraction.get('method'),
                 'output_file': extraction.get('output_file'),
                 'error': extraction.get('error'),
+                'entities': entities_data,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -957,3 +987,49 @@ class CandidateSummaryView(APIView):
             row.error_message = str(e)
             row.save(update_fields=["summary_status", "error_message", "updated_at"])
             return Response({"detail": f"Summary generation failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+
+
+class CandidateStructuredDataView(APIView):
+    """
+    API endpoint to get structured data for a candidate.
+    Returns the latest extracted entities from their CV.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, candidate_id):
+        org = request.user.organization
+        if not org:
+            return Response(
+                {"detail": "User has no organization"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            candidate = Candidate.objects.get(
+                id=candidate_id,
+                organization=org
+            )
+        except Candidate.DoesNotExist:
+            return Response(
+                {"detail": "Candidate not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get latest structured data
+        latest_data = CandidateStructuredData.objects.filter(
+            cv_parse__cv_file__candidate=candidate,
+            organization=org
+        ).select_related(
+            'cv_parse__cv_file__candidate'
+        ).order_by('-created_at').first()
+
+        if not latest_data:
+            return Response(
+                {"detail": "No structured data available for this candidate"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        from .serializers import CandidateStructuredDataSerializer
+        serializer = CandidateStructuredDataSerializer(latest_data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

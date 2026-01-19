@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from django.utils.text import slugify
 
-from .models import CVFile, Candidate, Organization, AuditLog, CVAccessEvent
+from .models import CVFile, Candidate, Organization, AuditLog, CVAccessEvent, CandidateStructuredData
 
 User = get_user_model()
 
@@ -394,3 +394,31 @@ class CandidateSummaryResponseSerializer(serializers.Serializer):
     fit_score_explanation = serializers.CharField(
         required=False, allow_blank=True, default=""
     )
+
+
+class CandidateStructuredDataSerializer(serializers.ModelSerializer):
+    """
+    Serializer for structured candidate data extracted from CV.
+    """
+    candidate_id = serializers.UUIDField(source='cv_parse.cv_file.candidate.id', read_only=True)
+    candidate_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CandidateStructuredData
+        fields = [
+            'id',
+            'candidate_id',
+            'candidate_name',
+            'structured_json',
+            'headline',
+            'primary_location',
+            'top_skills',
+            'experience_years',
+            'created_at',
+        ]
+        read_only_fields = fields
+    
+    def get_candidate_name(self, obj):
+        candidate = obj.cv_parse.cv_file.candidate
+        return f"{candidate.first_name} {candidate.last_name}".strip()
+

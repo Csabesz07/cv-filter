@@ -17,7 +17,8 @@ from .views import (
     UserMeView,
     NLQParseView,
     CandidateSearchView,
-    CandidateSummaryView
+    CandidateSummaryView,
+    CandidateStructuredDataView,
 )
 
 urlpatterns = [
@@ -39,5 +40,6 @@ urlpatterns = [
     path('api/nlq/parse/', NLQParseView.as_view(), name='api-nlq-parse'),
     path('api/candidates/search/', CandidateSearchView.as_view(), name='api-candidate-search'),
     path('api/candidates/<uuid:candidate_id>/summary/', CandidateSummaryView.as_view(), name='api-candidate-summary'),
+    path('api/candidates/<uuid:candidate_id>/structured/', CandidateStructuredDataView.as_view(), name='api-candidate-structured'),
 
 ]

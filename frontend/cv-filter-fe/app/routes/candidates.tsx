@@ -37,6 +37,38 @@ type CVFileListResponse = {
   detail?: string;
 };
 
+type StructuredData = {
+  id: string;
+  candidate_id: string;
+  candidate_name: string;
+  structured_json: {
+    email?: string;
+    phone?: string;
+    linkedin?: string;
+    github?: string;
+    websites?: string[];
+    programming_languages?: string[];
+    frameworks?: string[];
+    databases?: string[];
+    tools?: string[];
+    cloud_platforms?: string[];
+    soft_skills?: string[];
+    languages?: string[];
+    degrees?: string[];
+    certifications?: string[];
+    job_titles?: string[];
+  };
+  headline: string | null;
+  primary_location: string | null;
+  top_skills: string | null;
+  experience_years: number | null;
+  created_at: string;
+};
+
+type StructuredDataResponse = {
+  detail?: string;
+} & Partial<StructuredData>;
+
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Candidates | CV Filter" },
@@ -53,6 +85,7 @@ export default function Candidates() {
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [files, setFiles] = useState<CVFile[]>([]);
+  const [structuredData, setStructuredData] = useState<Map<string, StructuredData>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,6 +135,27 @@ export default function Candidates() {
     setFiles(body?.results || []);
   };
 
+  const fetchStructuredData = async (candidateId: string) => {
+    if (!accessToken) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/candidates/${candidateId}/structured/`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const contentType = response.headers.get("content-type") || "";
+      let body: StructuredDataResponse | null = null;
+      if (contentType.includes("application/json")) {
+        body = (await response.json()) as StructuredDataResponse;
+      }
+      if (response.ok && body?.id) {
+        setStructuredData(prev => new Map(prev).set(candidateId, body as StructuredData));
+      }
+    } catch {
+      // Ignore errors for structured data - it's optional
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     setLoadError(null);
@@ -119,6 +173,17 @@ export default function Candidates() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  // Fetch structured data when candidates change
+  useEffect(() => {
+    if (accessToken && candidates.length > 0) {
+      candidates.forEach(candidate => {
+        if (!structuredData.has(candidate.id)) {
+          void fetchStructuredData(candidate.id);
+        }
+      });
+    }
+  }, [candidates, accessToken]);
 
   const candidateSummaries = useMemo(() => {
     const map = new Map<
@@ -401,44 +466,277 @@ export default function Candidates() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Extracted text</h2>
-              <p className="text-sm text-slate-400">
-                Latest extracted CV text for the selected candidate.
-              </p>
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold">Extracted Skills & Data</h2>
+                <p className="text-sm text-slate-400">
+                  Structured information extracted from CV.
+                </p>
+              </div>
+
+              {selectedCandidate ? (
+                <div className="space-y-4">
+                  {(() => {
+                    const data = structuredData.get(selectedCandidate.candidate.id);
+                    if (!data) {
+                      return (
+                        <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
+                          No structured data available. Upload a CV to extract entities.
+                        </div>
+                      );
+                    }
+
+                    const { structured_json, headline, top_skills } = data;
+
+                    return (
+                      <>
+                        {headline && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Headline
+                            </label>
+                            <div className="mt-1 text-sm text-slate-200">{headline}</div>
+                          </div>
+                        )}
+
+                        {top_skills && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Top Skills
+                            </label>
+                            <div className="mt-1 text-sm text-slate-200">{top_skills}</div>
+                          </div>
+                        )}
+
+                        {structured_json.programming_languages && structured_json.programming_languages.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Programming Languages
+                            </label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {structured_json.programming_languages.map((lang, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded-lg bg-emerald-500/20 px-2 py-1 text-xs text-emerald-200"
+                                >
+                                  {lang}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.frameworks && structured_json.frameworks.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Frameworks
+                            </label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {structured_json.frameworks.map((fw, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded-lg bg-blue-500/20 px-2 py-1 text-xs text-blue-200"
+                                >
+                                  {fw}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.databases && structured_json.databases.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Databases
+                            </label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {structured_json.databases.map((db, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded-lg bg-purple-500/20 px-2 py-1 text-xs text-purple-200"
+                                >
+                                  {db}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.tools && structured_json.tools.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Tools
+                            </label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {structured_json.tools.map((tool, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded-lg bg-amber-500/20 px-2 py-1 text-xs text-amber-200"
+                                >
+                                  {tool}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.cloud_platforms && structured_json.cloud_platforms.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Cloud Platforms
+                            </label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {structured_json.cloud_platforms.map((cloud, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded-lg bg-sky-500/20 px-2 py-1 text-xs text-sky-200"
+                                >
+                                  {cloud}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.degrees && structured_json.degrees.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Education
+                            </label>
+                            <div className="mt-2 space-y-1">
+                              {structured_json.degrees.map((degree, idx) => (
+                                <div key={idx} className="text-sm text-slate-200">
+                                  • {degree}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.certifications && structured_json.certifications.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Certifications
+                            </label>
+                            <div className="mt-2 space-y-1">
+                              {structured_json.certifications.map((cert, idx) => (
+                                <div key={idx} className="text-sm text-slate-200">
+                                  • {cert}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.job_titles && structured_json.job_titles.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Job Titles
+                            </label>
+                            <div className="mt-2 space-y-1">
+                              {structured_json.job_titles.map((title, idx) => (
+                                <div key={idx} className="text-sm text-slate-200">
+                                  • {title}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.languages && structured_json.languages.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Languages
+                            </label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {structured_json.languages.map((lang, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded-lg bg-slate-700 px-2 py-1 text-xs text-slate-200"
+                                >
+                                  {lang}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {structured_json.email && (
+                          <div>
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Contact
+                            </label>
+                            <div className="mt-1 space-y-1 text-sm text-slate-200">
+                              {structured_json.email && <div>📧 {structured_json.email}</div>}
+                              {structured_json.phone && <div>📱 {structured_json.phone}</div>}
+                              {structured_json.linkedin && (
+                                <div>
+                                  🔗{" "}
+                                  <a
+                                    href={structured_json.linkedin}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-400 hover:underline"
+                                  >
+                                    LinkedIn
+                                  </a>
+                                </div>
+                              )}
+                              {structured_json.github && (
+                                <div>
+                                  💻{" "}
+                                  <a
+                                    href={structured_json.github}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-400 hover:underline"
+                                  >
+                                    GitHub
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
+                  Select a candidate to see structured data.
+                </div>
+              )}
             </div>
 
-            {selectedCandidate ? (
-              <div className="space-y-3">
-                <div className="text-sm font-semibold text-slate-200">
-                  {selectedCandidate.candidate.first_name}{" "}
-                  {selectedCandidate.candidate.last_name}
-                </div>
-                <div className="text-xs text-slate-400">
-                  {selectedCandidate.candidate.email}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {selectedCandidate.count
-                    ? `${selectedCandidate.count} CVs indexed`
-                    : "No CVs uploaded"}
-                </div>
-                <textarea
-                  readOnly
-                  value={selectedCandidate.latestText || ""}
-                  className="h-96 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-100"
-                />
-                {!selectedCandidate.latestText ? (
-                  <p className="text-xs text-slate-400">
-                    No extracted text available yet. Upload a CV to generate it.
-                  </p>
-                ) : null}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold">Raw Extracted Text</h2>
+                <p className="text-sm text-slate-400">
+                  Full text extracted from CV.
+                </p>
               </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
-                Select a candidate to see extracted text.
-              </div>
-            )}
+
+              {selectedCandidate ? (
+                <div className="space-y-3">
+                  <textarea
+                    readOnly
+                    value={selectedCandidate.latestText || ""}
+                    className="h-64 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-100"
+                  />
+                  {!selectedCandidate.latestText ? (
+                    <p className="text-xs text-slate-400">
+                      No extracted text available yet. Upload a CV to generate it.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
+                  Select a candidate to see extracted text.
+                </div>
+              )}
+            </div>
           </section>
         </div>
       </div>
