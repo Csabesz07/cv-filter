@@ -24,6 +24,23 @@ type ExtractResponse = {
   upload_status?: string;
   uploaded_at?: string;
   source_type?: string;
+  entities?: {
+    email?: string;
+    phone?: string;
+    linkedin?: string;
+    github?: string;
+    websites?: string[];
+    programming_languages?: string[];
+    frameworks?: string[];
+    databases?: string[];
+    tools?: string[];
+    cloud_platforms?: string[];
+    soft_skills?: string[];
+    languages?: string[];
+    degrees?: string[];
+    certifications?: string[];
+    job_titles?: string[];
+  } | null;
 };
 
 type Candidate = {
@@ -399,24 +416,116 @@ export default function DocumentExtraction() {
 
             {result ? (
               <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Extracted text
-                  </label>
-                  <textarea
-                    readOnly
-                    value={result.extracted_text || ""}
-                    className="mt-2 h-48 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-100"
-                  />
-                  {!result.extracted_text ? (
-                    <p className="mt-2 text-xs text-slate-400">
-                      No extracted text returned. The backend responded with upload
-                      details only.
-                    </p>
-                  ) : null}
-                </div>
+                {result.entities ? (
+                  <div className="space-y-4">
+                    <h3 className="text-base font-semibold text-slate-200">Extracted Entities</h3>
+                    
+                    {result.entities.programming_languages && result.entities.programming_languages.length > 0 && (
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Programming Languages
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {result.entities.programming_languages.map((lang, idx) => (
+                            <span key={idx} className="rounded-lg bg-emerald-500/20 px-2 py-1 text-xs text-emerald-200">
+                              {lang}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                <div className="space-y-2 text-sm">
+                    {result.entities.frameworks && result.entities.frameworks.length > 0 && (
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Frameworks
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {result.entities.frameworks.map((fw, idx) => (
+                            <span key={idx} className="rounded-lg bg-blue-500/20 px-2 py-1 text-xs text-blue-200">
+                              {fw}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.entities.databases && result.entities.databases.length > 0 && (
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Databases
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {result.entities.databases.map((db, idx) => (
+                            <span key={idx} className="rounded-lg bg-purple-500/20 px-2 py-1 text-xs text-purple-200">
+                              {db}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.entities.tools && result.entities.tools.length > 0 && (
+                       <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Tools
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {result.entities.tools.map((tool, idx) => (
+                            <span key={idx} className="rounded-lg bg-amber-500/20 px-2 py-1 text-xs text-amber-200">
+                              {tool}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.entities.degrees && result.entities.degrees.length > 0 && (
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Education
+                        </label>
+                        <div className="mt-2 space-y-1">
+                          {result.entities.degrees.map((degree, idx) => (
+                            <div key={idx} className="text-sm text-slate-200">• {degree}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.entities.job_titles && result.entities.job_titles.length > 0 && (
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Job Titles
+                        </label>
+                        <div className="mt-2 space-y-1">
+                          {result.entities.job_titles.map((title, idx) => (
+                            <div key={idx} className="text-sm text-slate-200">• {title}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Extracted text
+                    </label>
+                    <textarea
+                      readOnly
+                      value={result.extracted_text || ""}
+                      className="mt-2 h-48 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-100"
+                    />
+                    {!result.extracted_text ? (
+                      <p className="mt-2 text-xs text-slate-400">
+                        No extracted text returned. The backend responded with upload
+                        details only.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+
+                <div className="space-y-2 text-sm pt-4 border-t border-slate-800">
                   <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Metadata
                   </div>
