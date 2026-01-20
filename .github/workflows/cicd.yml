@@ -56,11 +56,11 @@ jobs:
 
       - name: Run migrations
         run: |
-          python cv_filter/manage.py migrate --noinput
+          python apps/api/cv_filter/manage.py migrate --noinput
 
       - name: Run tests
         run: |
-          python cv_filter/manage.py test -v 2
+          python apps/api/cv_filter/manage.py test -v 2
 
   docker:
     name: Build Docker image
