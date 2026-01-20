@@ -22,7 +22,7 @@ jobs:
         env:
           POSTGRES_DB: cv_filter
           POSTGRES_USER: cv_filter
-          POSTGRES_PASSWORD: test_password_123
+          POSTGRES_PASSWORD: cv_filter
         ports:
           - 5432:5432
         options: >-
@@ -37,8 +37,8 @@ jobs:
       DJANGO_ALLOWED_HOSTS: ${{ vars.DJANGO_ALLOWED_HOSTS || '*' }}
       POSTGRES_DB: cv_filter
       POSTGRES_USER: cv_filter
-      POSTGRES_PASSWORD: test_password_123
-      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: cv_filter
+      POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
 
     steps:
