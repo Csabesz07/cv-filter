@@ -1,5 +1,6 @@
 import { type RouteConfig, index, route } from "@react-router/dev/routes";
 
+// Audit & Compliance Dashboard
 export default [
   index("routes/index.tsx"),
   route("login", "routes/login.tsx"),
@@ -9,6 +10,7 @@ export default [
   route("organization", "routes/organization.tsx"),
   route("candidates", "routes/candidates.tsx"),
   route("search", "routes/search.tsx"),
+  route("audit", "routes/audit.tsx"),
   route("files", "routes/files.tsx"),
   route("document-extraction", "routes/document-extraction.tsx"),
 ] satisfies RouteConfig;

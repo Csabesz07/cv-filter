@@ -45,6 +45,28 @@ class ExtractedEntities:
         return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
 
     @classmethod
+    def from_dict(cls, data: Dict) -> "ExtractedEntities":
+        """Create ExtractedEntities from dictionary."""
+        # Get all expected fields with defaults to empty list
+        return cls(
+            email=data.get("email", []),
+            phone=data.get("phone", []),
+            linkedin=data.get("linkedin", []),
+            github=data.get("github", []),
+            websites=data.get("websites", []),
+            programming_languages=data.get("programming_languages", []),
+            frameworks=data.get("frameworks", []),
+            databases=data.get("databases", []),
+            tools=data.get("tools", []),
+            cloud_platforms=data.get("cloud_platforms", []),
+            soft_skills=data.get("soft_skills", []),
+            languages=data.get("languages", []),
+            degrees=data.get("degrees", []),
+            certifications=data.get("certifications", []),
+            job_titles=data.get("job_titles", []),
+        )
+
+    @classmethod
     def empty(cls) -> "ExtractedEntities":
         """Create an empty ExtractedEntities object."""
         return cls(

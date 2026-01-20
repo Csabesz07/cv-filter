@@ -251,15 +251,31 @@ class CVAccessEventService:
             )
 
             # Also create audit log for important events
-            if action in [CVAccessAction.VIEWED, CVAccessAction.RANKED]:
+            important_actions = [
+                CVAccessAction.UPLOADED,
+                CVAccessAction.VIEWED,
+                CVAccessAction.RANKED,
+                CVAccessAction.PARSE_STARTED,
+                CVAccessAction.PARSE_FINISHED,
+                CVAccessAction.SEARCHED,
+                CVAccessAction.SUMMARY_GENERATED,
+            ]
+            
+            if action in important_actions:
                 AuditLogService.log(
                     organization=organization,
-                    event_type=f"cv_access.{action}",
-                    entity_type='candidate',
-                    entity_id=candidate.id,
+                    event_type=f"cv.{action.lower()}",
+                    entity_type='cv_file' if cv_file else 'candidate',
+                    entity_id=cv_file.id if cv_file else candidate.id,
                     actor_user=actor_user,
-                    description=f"CV {action} for {candidate.first_name} {candidate.last_name}",
-                    metadata={'cv_file_id': str(cv_file.id) if cv_file else None},
+                    description=f"CV {action.lower().replace('_', ' ')} for {candidate.first_name} {candidate.last_name}",
+                    metadata={
+                        'cv_file_id': str(cv_file.id) if cv_file else None,
+                        'cv_parse_id': str(cv_parse.id) if cv_parse else None,
+                        'candidate_name': f"{candidate.first_name} {candidate.last_name}",
+                        'filename': cv_file.original_filename if cv_file else None,
+                        'action': action,
+                    },
                     severity=AuditSeverity.LOG,
                 )
 

@@ -157,6 +157,24 @@ class CandidateCreateSerializer(serializers.ModelSerializer):
         model = Candidate
         fields = ('id', 'first_name', 'last_name', 'email')
         read_only_fields = ('id',)
+    
+    def create(self, validated_data):
+        organization = validated_data.get('organization')
+        email = validated_data.get('email')
+        
+        # Check if candidate already exists with this email in the organization
+        if organization and email:
+            existing = Candidate.objects.filter(
+                organization=organization,
+                email=email
+            ).first()
+            
+            if existing:
+                # Return existing candidate instead of creating duplicate
+                return existing
+        
+        # Create new candidate
+        return super().create(validated_data)
 
 
 class CVUploadSerializer(serializers.ModelSerializer):

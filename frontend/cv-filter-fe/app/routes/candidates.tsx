@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { Route } from "./+types/candidates";
+import { authenticatedFetch } from "../utils/auth";
 
 type CandidateResponse = {
   candidate?: {
@@ -10,6 +11,7 @@ type CandidateResponse = {
     email?: string;
   };
   detail?: string;
+  message?: string;
 };
 
 type Candidate = {
@@ -86,6 +88,9 @@ export default function Candidates() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [files, setFiles] = useState<CVFile[]>([]);
   const [structuredData, setStructuredData] = useState<Map<string, StructuredData>>(new Map());
+  const [summaryTexts, setSummaryTexts] = useState<Map<string, string>>(new Map());
+  const [isSummaryLoading, setIsSummaryLoading] = useState<Map<string, boolean>>(new Map());
+  const [summaryError, setSummaryError] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,19 +98,8 @@ export default function Candidates() {
     null
   );
 
-  const accessToken = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return sessionStorage.getItem("access") || localStorage.getItem("access_token");
-  }, []);
-
   const fetchCandidates = async () => {
-    if (!accessToken) {
-      setLoadError("You need to sign in to view candidates.");
-      return;
-    }
-    const response = await fetch("/api/candidates/", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const response = await authenticatedFetch("/api/candidates/");
     const contentType = response.headers.get("content-type") || "";
     let body: CandidateListResponse | null = null;
     if (contentType.includes("application/json")) {
@@ -118,12 +112,7 @@ export default function Candidates() {
   };
 
   const fetchFiles = async () => {
-    if (!accessToken) {
-      return;
-    }
-    const response = await fetch("/api/cv/files/", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const response = await authenticatedFetch("/api/cv/files/");
     const contentType = response.headers.get("content-type") || "";
     let body: CVFileListResponse | null = null;
     if (contentType.includes("application/json")) {
@@ -136,13 +125,14 @@ export default function Candidates() {
   };
 
   const fetchStructuredData = async (candidateId: string) => {
-    if (!accessToken) {
-      return;
-    }
     try {
-      const response = await fetch(`/api/candidates/${candidateId}/structured/`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const response = await authenticatedFetch(`/api/candidates/${candidateId}/structured/`);
+      
+      // If 404, the candidate has no structured data yet - this is normal
+      if (response.status === 404) {
+        return;
+      }
+      
       const contentType = response.headers.get("content-type") || "";
       let body: StructuredDataResponse | null = null;
       if (contentType.includes("application/json")) {
@@ -153,6 +143,51 @@ export default function Candidates() {
       }
     } catch {
       // Ignore errors for structured data - it's optional
+    }
+  };
+
+  const generateSummary = async (candidateId: string, language: string = "hu") => {
+    setIsSummaryLoading(prev => new Map(prev).set(candidateId, true));
+    setSummaryError(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(candidateId);
+      return newMap;
+    });
+
+    try {
+      const response = await authenticatedFetch(`/api/candidates/${candidateId}/summary/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          language: language,
+          method: "template", // Use hallucination-free template method
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      let body: { summary?: string; detail?: string } | null = null;
+      if (contentType.includes("application/json")) {
+        body = await response.json();
+      }
+
+      if (!response.ok) {
+        throw new Error(body?.detail || "Failed to generate summary.");
+      }
+
+      if (body?.summary) {
+        setSummaryTexts(prev => new Map(prev).set(candidateId, body.summary!));
+      }
+    } catch (err) {
+      setSummaryError(prev => 
+        new Map(prev).set(
+          candidateId, 
+          err instanceof Error ? err.message : "Failed to generate summary"
+        )
+      );
+    } finally {
+      setIsSummaryLoading(prev => new Map(prev).set(candidateId, false));
     }
   };
 
@@ -176,14 +211,14 @@ export default function Candidates() {
 
   // Fetch structured data when candidates change
   useEffect(() => {
-    if (accessToken && candidates.length > 0) {
+    if (candidates.length > 0) {
       candidates.forEach(candidate => {
         if (!structuredData.has(candidate.id)) {
           void fetchStructuredData(candidate.id);
         }
       });
     }
-  }, [candidates, accessToken]);
+  }, [candidates]);
 
   const candidateSummaries = useMemo(() => {
     const map = new Map<
@@ -267,19 +302,13 @@ export default function Candidates() {
     setMessage(null);
     setError(null);
 
-    if (!accessToken) {
-      setError("You need to sign in to create a candidate.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/candidates/", {
+      const response = await authenticatedFetch("/api/candidates/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           first_name: firstName.trim(),
@@ -299,7 +328,13 @@ export default function Candidates() {
         return;
       }
 
-      setMessage("Candidate created.");
+      // Check if candidate was created (201) or already existed (200)
+      if (response.status === 200 && body?.message) {
+        setMessage(body.message); // "Candidate with this email already exists."
+      } else {
+        setMessage("Candidate created.");
+      }
+      
       setFirstName("");
       setLastName("");
       setEmail("");
@@ -495,6 +530,99 @@ export default function Candidates() {
           </section>
 
           <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Professional Summary</h2>
+                  <p className="text-sm text-slate-400">
+                    AI-generated 3-5 sentence summary of the candidate's profile.
+                  </p>
+                </div>
+                {selectedCandidate && (
+                  <button
+                    onClick={() => generateSummary(selectedCandidate.candidate.id, "en")}
+                    disabled={isSummaryLoading.get(selectedCandidate.candidate.id)}
+                    className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>
+                      {isSummaryLoading.get(selectedCandidate.candidate.id) 
+                        ? "Generating..." 
+                        : summaryTexts.has(selectedCandidate.candidate.id)
+                        ? "Regenerate"
+                        : "Generate Summary"}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {selectedCandidate ? (
+                <div className="space-y-3">
+                  {(() => {
+                    const summary = summaryTexts.get(selectedCandidate.candidate.id);
+                    const loading = isSummaryLoading.get(selectedCandidate.candidate.id);
+                    const error = summaryError.get(selectedCandidate.candidate.id);
+
+                    if (loading) {
+                      return (
+                        <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-6 text-center">
+                          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-emerald-400 border-r-transparent"></div>
+                          <p className="mt-2 text-sm text-slate-400">Generating professional summary...</p>
+                        </div>
+                      );
+                    }
+
+                    if (error) {
+                      return (
+                        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                          <strong>Error:</strong> {error}
+                        </div>
+                      );
+                    }
+
+                    if (summary) {
+                      return (
+                        <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 px-5 py-4">
+                          <div className="flex items-start gap-3">
+                            <div className="text-2xl">✨</div>
+                            <div className="flex-1">
+                              <p className="text-sm leading-relaxed text-slate-100">
+                                {summary}
+                              </p>
+                              <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-emerald-300">
+                                  ✓ Hallucination-free
+                                </span>
+                                <span className="rounded-full bg-blue-500/20 px-2.5 py-0.5 text-blue-300">
+                                  English
+                                </span>
+                                <span className="rounded-full bg-purple-500/20 px-2.5 py-0.5 text-purple-300">
+                                  Template-based
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-sm text-slate-500">
+                        <p className="mb-2">No summary generated yet for this candidate.</p>
+                        <p className="text-xs">Click the "Generate Summary" button to create one.</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
+                  Select a candidate to view their professional summary.
+                </div>
+              )}
+            </div>
+
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold">Extracted Skills & Data</h2>

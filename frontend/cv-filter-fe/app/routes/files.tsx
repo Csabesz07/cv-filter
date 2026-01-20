@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 
 import type { Route } from "./+types/files";
+import { authenticatedFetch } from "../utils/auth";
 
 type Candidate = {
   id: string;
@@ -42,40 +44,42 @@ function formatBytes(bytes: number) {
 }
 
 export default function Files() {
+  const navigate = useNavigate();
   const [files, setFiles] = useState<CVFile[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  const accessToken = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return sessionStorage.getItem("access") || localStorage.getItem("access_token");
-  }, []);
-
   const loadFiles = async () => {
-    if (!accessToken) {
-      setError("You need to sign in to view files.");
-      return;
-    }
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/cv/files/", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const response = await authenticatedFetch("/api/cv/files/");
       const contentType = response.headers.get("content-type") || "";
       let body: CVFileListResponse | null = null;
       if (contentType.includes("application/json")) {
         body = (await response.json()) as CVFileListResponse;
       }
       if (!response.ok) {
+        // If still unauthorized after token refresh, redirect to login
+        if (response.status === 401) {
+          setError("Your session has expired. Please sign in again.");
+          setTimeout(() => navigate("/login"), 2000);
+          return;
+        }
         setError(body?.detail || "Failed to load files.");
         return;
       }
       setFiles(body?.results || []);
-    } catch {
-      setError("Failed to load files.");
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to load files.";
+      if (errorMsg.includes("No access token")) {
+        setError("You are not signed in. Please log in to view files.");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -88,10 +92,6 @@ export default function Files() {
   const selectedFile = files.find((file) => file.id === selectedId) || null;
 
   const handleDelete = async (cvFile: CVFile) => {
-    if (!accessToken) {
-      setError("You need to sign in to delete files.");
-      return;
-    }
     const confirmed = window.confirm(
       `Delete ${cvFile.original_filename}? This cannot be undone.`
     );
@@ -101,11 +101,15 @@ export default function Files() {
     setIsDeleting(cvFile.id);
     setError(null);
     try {
-      const response = await fetch(`/api/cv/files/${cvFile.id}/`, {
+      const response = await authenticatedFetch(`/api/cv/files/${cvFile.id}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          setError("Your session has expired. Redirecting to login...");
+          setTimeout(() => navigate("/login"), 2000);
+          return;
+        }
         setError("Failed to delete file.");
         return;
       }
@@ -113,8 +117,14 @@ export default function Files() {
       if (selectedId === cvFile.id) {
         setSelectedId(null);
       }
-    } catch {
-      setError("Failed to delete file.");
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to delete file.";
+      if (errorMsg.includes("No access token")) {
+        setError("You are not signed in. Redirecting to login...");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+      setError(errorMsg);
     } finally {
       setIsDeleting(null);
     }

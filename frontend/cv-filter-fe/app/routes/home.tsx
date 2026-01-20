@@ -91,6 +91,15 @@ export default function Home() {
                 Try Natural Language Search →
               </Link>
             </article>
+            <article className="home-feature-card">
+              <h3>Audit & Compliance</h3>
+              <p>
+                Monitor ranking events, detect bias patterns, and ensure compliance with automatic logging and statistical analysis.
+              </p>
+              <Link to="/audit" className="text-blue-400 hover:text-blue-300 text-sm">
+                View Audit Dashboard →
+              </Link>
+            </article>
           </div>
         </section>
 

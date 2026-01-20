@@ -91,13 +91,14 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold">Natural Language Search</h1>
-        <p className="text-slate-400">
-          Search candidates using natural language (e.g., "3 years Java experience + English B2")
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-950 p-6">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8">
+          <h1 className="mb-2 text-3xl font-bold text-slate-100">Natural Language Search</h1>
+          <p className="text-slate-400">
+            Search candidates using natural language (e.g., "3 years Java experience + English B2")
+          </p>
+        </div>
 
       {/* Search Input */}
       <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
@@ -133,7 +134,7 @@ export default function SearchPage() {
         <button
           onClick={handleSearch}
           disabled={isLoading}
-          className="rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-700"
+          className="rounded-lg bg-emerald-600 px-6 py-2 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-700"
         >
           {isLoading ? "Searching..." : "Search"}
         </button>
@@ -165,7 +166,7 @@ export default function SearchPage() {
                     </h3>
                     <p className="text-sm text-slate-400">{candidate.email}</p>
                   </div>
-                  <div className="rounded-lg bg-blue-600/20 px-3 py-1 text-sm font-semibold text-blue-400">
+                  <div className="rounded-lg bg-emerald-600/20 px-3 py-1 text-sm font-semibold text-emerald-400 border border-emerald-500/30">
                     Score: {(candidate.score * 100).toFixed(0)}%
                   </div>
                 </div>
@@ -210,7 +211,7 @@ export default function SearchPage() {
 
       {/* Examples */}
       <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-        <h3 className="mb-3 text-lg font-semibold">Example Queries</h3>
+        <h3 className="mb-3 text-lg font-semibold text-slate-100">Example Queries</h3>
         <div className="space-y-2 text-sm text-slate-400">
           <div
             onClick={() => {
@@ -249,6 +250,7 @@ export default function SearchPage() {
             "React developer with Next.js and Redux experience"
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

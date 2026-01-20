@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #059669;
+        }
+        #output {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            color: #f87171;
+        }
+        .success {
+            color: #4ade80;
+        }
+        .info {
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>CV Filter Token Tester</h1>
+    <p>Ez az eszköz segít ellenőrizni és javítani a token problémákat.</p>
+    
+    <div>
+        <button onclick="checkTokens()">Tokenek Ellenőrzése</button>
+        <button onclick="testRefresh()">Token Frissítés Tesztelése</button>
+        <button onclick="clearTokens()">Tokenek Törlése</button>
+        <button onclick="testFilesAPI()">Files API Tesztelése</button>
+    </div>
+    
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+        }
+        
+        function checkTokens() {
+            output.innerHTML = '';
+            log('=== TOKEN ELLENŐRZÉS ===', 'info');
+            
+            const accessToken = sessionStorage.getItem('access') || localStorage.getItem('access_token');
+            const refreshToken = sessionStorage.getItem('refresh') || localStorage.getItem('refresh_token');
+            
+            if (accessToken) {
+                log('✓ Access token megtalálva: ' + accessToken.substring(0, 50) + '...', 'success');
+            } else {
+                log('✗ Access token HIÁNYZIK!', 'error');
+            }
+            
+            if (refreshToken) {
+                log('✓ Refresh token megtalálva: ' + refreshToken.substring(0, 50) + '...', 'success');
+            } else {
+                log('✗ Refresh token HIÁNYZIK!', 'error');
+            }
+            
+            if (!accessToken && !refreshToken) {
+                log('\nJavaslat: Jelentkezz be újra a http://localhost:5173/login oldalon', 'info');
+            }
+        }
+        
+        async function testRefresh() {
+            output.innerHTML = '';
+            log('=== REFRESH TOKEN TESZT ===', 'info');
+            
+            const refreshToken = sessionStorage.getItem('refresh') || localStorage.getItem('refresh_token');
+            
+            if (!refreshToken) {
+                log('✗ Nincs refresh token! Először jelentkezz be.', 'error');
+                return;
+            }
+            
+            log('Refresh token küldése a backend-nek...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/token/refresh/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh: refreshToken })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.access) {
+                    log('✓ Sikeres refresh! Új access token: ' + data.access.substring(0, 50) + '...', 'success');
+                    sessionStorage.setItem('access', data.access);
+                    localStorage.setItem('access_token', data.access);
+                    log('Új token elmentve a storage-ba', 'success');
+                } else {
+                    log('✗ Refresh sikertelen: ' + JSON.stringify(data), 'error');
+                    log('A refresh token valószínűleg lejárt. Jelentkezz be újra!', 'error');
+                }
+            } catch (error) {
+                log('✗ Hiba: ' + error.message, 'error');
+            }
+        }
+        
+        function clearTokens() {
+            output.innerHTML = '';
+            log('=== TOKENEK TÖRLÉSE ===', 'info');
+            
+            sessionStorage.removeItem('access');
+            sessionStorage.removeItem('refresh');
+            sessionStorage.removeItem('user');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            
+            log('✓ Minden token törölve', 'success');
+            log('Most jelentkezz be újra: http://localhost:5173/login', 'info');
+        }
+        
+        async function testFilesAPI() {
+            output.innerHTML = '';
+            log('=== FILES API TESZT ===', 'info');
+            
+            const accessToken = sessionStorage.getItem('access') || localStorage.getItem('access_token');
+            
+            if (!accessToken) {
+                log('✗ Nincs access token!', 'error');
+                return;
+            }
+            
+            log('Files API hívása...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/cv/files/', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✓ API hívás sikeres!', 'success');
+                    log('Fájlok száma: ' + (data.results ? data.results.length : 0), 'info');
+                } else {
+                    log('✗ API hívás sikertelen (' + response.status + '): ' + JSON.stringify(data), 'error');
+                    
+                    if (response.status === 401) {
+                        log('\nPróbáld meg a "Token Frissítés Tesztelése" gombot!', 'info');
+                    }
+                }
+            } catch (error) {
+                log('✗ Hiba: ' + error.message, 'error');
+            }
+        }
+        
+        // Auto-check on load
+        window.onload = checkTokens;
+    </script>
+</body>
+</html>

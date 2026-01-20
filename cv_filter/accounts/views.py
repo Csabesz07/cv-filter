@@ -15,10 +15,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from document_extraction.extract_data import CVTextExtractor
 from entity_extraction.entity_extractor import CVEntityExtractor
+from entity_extraction.models import ExtractedEntities
+from summarization.summarizer import CVSummarizer
 from .embedding_service import EmbeddingService
 from .local_nlq_parser import LocalNLQParser
 from .models import CVFile, CVParse, CVParseStatus, Candidate, CandidateStructuredData, SearchDocument, SearchEntityType
-from .logging_service import AuditLogService, CVAccessEventService
+from .logging_service import AuditLogService, AuditSeverity, CVAccessEventService
 from .serializers import (
     AuditLogSerializer,
     CVAccessEventSerializer,
@@ -479,24 +481,28 @@ class RankingEventListView(APIView):
         # Get query parameters
         run_id = request.query_params.get('run_id')
         event_type = request.query_params.get('event_type')
+        severity = request.query_params.get('severity')
         limit = min(int(request.query_params.get('limit', 100)), 1000)
 
-        # Build filter for ranking events
-        # All ranking events start with 'ranking.'
+        # Build filter for audit events
         from accounts.models import AuditLog
         
-        queryset = AuditLog.objects.filter(
-            organization=org,
-            event_type__startswith='ranking.'
+        # Exclude low-level HTTP events - HR only needs business events
+        queryset = AuditLog.objects.filter(organization=org).exclude(
+            event_type__startswith='http.'
         )
-
+        
         # Filter by run_id if provided
         if run_id:
             queryset = queryset.filter(entity_id=run_id)
-
-        # Filter by specific event type
+        
+        # Optionally filter by event type
         if event_type:
             queryset = queryset.filter(event_type=event_type)
+        
+        # Filter by severity if provided
+        if severity:
+            queryset = queryset.filter(severity__iexact=severity)
 
         # Order and limit
         queryset = queryset.order_by('-created_at')[:limit]
@@ -633,7 +639,44 @@ class CandidateListCreateView(APIView):
 
         serializer = CandidateCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
+        # Check if candidate already exists
+        email = serializer.validated_data.get('email')
+        existing_candidate = None
+        if email:
+            existing_candidate = Candidate.objects.filter(
+                organization=organization,
+                email=email
+            ).first()
+        
+        if existing_candidate:
+            # Return existing candidate with 200 OK (idempotent)
+            return Response(
+                {
+                    'candidate': CandidateCreateSerializer(existing_candidate).data,
+                    'message': 'Candidate with this email already exists.',
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        # Create new candidate
         candidate = serializer.save(organization=organization)
+        
+        # Log candidate creation
+        AuditLogService.log(
+            organization=organization,
+            event_type='candidate.created',
+            entity_type='candidate',
+            entity_id=candidate.id,
+            actor_user=request.user,
+            description=f"Created candidate {candidate.first_name} {candidate.last_name}",
+            metadata={
+                'email': candidate.email,
+                'phone': candidate.phone,
+            },
+            severity=AuditSeverity.LOG,
+        )
+        
         return Response(
             {'candidate': CandidateCreateSerializer(candidate).data},
             status=status.HTTP_201_CREATED,
@@ -679,6 +722,22 @@ class CVFileListDeleteView(APIView):
             f"{storage_path.stem}_extracted.txt"
         )
 
+        # Log CV file deletion
+        AuditLogService.log(
+            organization=organization,
+            event_type='cv.deleted',
+            entity_type='cv_file',
+            entity_id=cv_file.id,
+            actor_user=request.user,
+            description=f"Deleted CV file {cv_file.original_filename} for {cv_file.candidate.first_name} {cv_file.candidate.last_name}",
+            metadata={
+                'filename': cv_file.original_filename,
+                'candidate_id': str(cv_file.candidate.id),
+                'candidate_name': f"{cv_file.candidate.first_name} {cv_file.candidate.last_name}",
+            },
+            severity=AuditSeverity.LOG,
+        )
+        
         cv_file.cv_parses.all().delete()
         cv_file.delete()
 
@@ -986,6 +1045,8 @@ class CandidateSummaryView(APIView):
         s.is_valid(raise_exception=True)
         language = s.validated_data.get("language", "hu")
         job_text = s.validated_data.get("job_text")
+        # New parameter to choose summary method: "template" (default) or "ai"
+        method = request.data.get("method", "template")
 
         latest_parse = CVParse.objects.filter(
             organization=org,
@@ -996,12 +1057,14 @@ class CandidateSummaryView(APIView):
         if not latest_parse:
             return Response({"detail": "No parsed CV text available for this candidate."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check for cached summary with the same method
         cached = CandidateSummary.objects.filter(
             organization=org,
             candidate=candidate,
             cv_parse=latest_parse,
             language=language,
             summary_status=SummaryStatus.SUCCEEDED,
+            model_name=method,  # Cache per method
         ).order_by("-created_at").first()
 
         if cached and cached.summary_text:
@@ -1010,40 +1073,94 @@ class CandidateSummaryView(APIView):
                 "highlights": [],
                 "risks": [],
                 "fit_score_explanation": "",
+                "method": method,
             })
 
+        # Create summary record
         row = CandidateSummary.objects.create(
             organization=org,
             candidate=candidate,
             cv_parse=latest_parse,
             language=language,
             summary_status=SummaryStatus.PENDING,
-            prompt_version="make_v1",
+            prompt_version="v1.0",
+            model_name=method,
         )
 
         try:
-            ai = generate_summary(
-                cv_text=latest_parse.text_content or "",
-                language=language,
-                job_text=job_text,
-            )
+            if method == "ai":
+                # Use existing AI-based summary (Make.com webhook)
+                ai = generate_summary(
+                    cv_text=latest_parse.text_content or "",
+                    language=language,
+                    job_text=job_text,
+                )
 
-            resp = CandidateSummaryResponseSerializer(data=ai)
-            resp.is_valid(raise_exception=True)
+                resp = CandidateSummaryResponseSerializer(data=ai)
+                resp.is_valid(raise_exception=True)
 
-            row.summary_status = SummaryStatus.SUCCEEDED
-            row.summary_text = resp.validated_data["summary"]
-            row.generated_at = timezone.now()
-            row.model_name = ai.get("model_name", "make")
-            row.model_version = ai.get("model_version", "")
-            row.save(update_fields=[
-                "summary_status",
-                "summary_text",
-                "generated_at",
-                "model_name",
-                "model_version",
-                "updated_at",
-            ])
+                row.summary_status = SummaryStatus.SUCCEEDED
+                row.summary_text = resp.validated_data["summary"]
+                row.generated_at = timezone.now()
+                row.model_version = ai.get("model_version", "")
+                row.save(update_fields=[
+                    "summary_status",
+                    "summary_text",
+                    "generated_at",
+                    "model_version",
+                    "updated_at",
+                ])
+
+                result = resp.validated_data
+            else:
+                # Use template-based summary (no hallucinations, uses only extracted entities)
+                # Get structured data (extracted entities)
+                structured_data = CandidateStructuredData.objects.filter(
+                    cv_parse=latest_parse,
+                    organization=org
+                ).first()
+
+                if not structured_data or not structured_data.structured_json:
+                    return Response(
+                        {"detail": "No structured data available for this candidate. Please ensure CV has been processed."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Convert structured_json to ExtractedEntities
+                entities = ExtractedEntities.from_dict(structured_data.structured_json)
+                
+                # Generate template-based summary
+                summarizer = CVSummarizer(
+                    language=language,
+                    model_name="template",
+                    model_version="1.0",
+                    prompt_version="1.0"
+                )
+                
+                cv_summary = summarizer.generate_summary(entities, language=language)
+
+                # Update database record
+                row.summary_status = SummaryStatus.SUCCEEDED
+                row.summary_text = cv_summary.summary_text
+                row.generated_at = cv_summary.generated_at
+                row.model_version = cv_summary.model_version
+                row.prompt_version = cv_summary.prompt_version
+                row.save(update_fields=[
+                    "summary_status",
+                    "summary_text",
+                    "generated_at",
+                    "model_version",
+                    "prompt_version",
+                    "updated_at",
+                ])
+
+                result = {
+                    "summary": cv_summary.summary_text,
+                    "highlights": [],
+                    "risks": [],
+                    "fit_score_explanation": "",
+                    "method": "template",
+                }
 
             CVAccessEventService.log_event(
                 organization=org,
@@ -1053,10 +1170,10 @@ class CandidateSummaryView(APIView):
                 cv_file=latest_parse.cv_file,
                 cv_parse=latest_parse,
                 channel="api",
-                metadata={"language": language, "prompt_version": "make_v1"},
+                metadata={"language": language, "method": method, "prompt_version": "v1.0"},
             )
 
-            return Response(resp.validated_data, status=status.HTTP_200_OK)
+            return Response(result, status=status.HTTP_200_OK)
 
         except Exception as e:
             row.summary_status = SummaryStatus.FAILED
@@ -1127,6 +1244,20 @@ class CandidateDetailView(APIView):
         # Check if the user belongs to the same organization as the candidate
         if candidate.organization != request.user.organization:
             return Response(status=status.HTTP_403_FORBIDDEN)
+        
+        # Log candidate deletion
+        AuditLogService.log(
+            organization=candidate.organization,
+            event_type='candidate.deleted',
+            entity_type='candidate',
+            entity_id=candidate.id,
+            actor_user=request.user,
+            description=f"Deleted candidate {candidate.first_name} {candidate.last_name}",
+            metadata={
+                'email': candidate.email,
+            },
+            severity=AuditSeverity.LOG,
+        )
         
         candidate.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

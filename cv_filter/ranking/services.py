@@ -16,6 +16,7 @@ from accounts.models import (
     RankingRunStatus,
 )
 from accounts.logging_service import AuditLogService
+from .bias_detector import BiasPatternDetector
 from .scoring.weighted_aggregator import create_scoring_engine
 
 logger = logging.getLogger(__name__)
@@ -253,6 +254,28 @@ class RankingService:
                 score_stats['min'] = float(min(all_scores))
                 score_stats['max'] = float(max(all_scores))
                 score_stats['avg'] = float(sum(all_scores) / len(all_scores))
+            
+            # Bias pattern detection
+            bias_detector = BiasPatternDetector()
+            bias_analysis = bias_detector.analyze_score_distribution(all_scores)
+            
+            # Log bias analysis if indicators detected
+            if bias_analysis['has_bias_indicators']:
+                AuditLogService.log(
+                    organization=organization,
+                    event_type='ranking.bias.detected',
+                    entity_type='ranking_run',
+                    entity_id=run.id,
+                    actor_user=created_by,
+                    description=f'Bias indicators detected in ranking run {run.id}',
+                    metadata={
+                        'run_id': str(run.id),
+                        'bias_indicators': bias_analysis['alerts'],
+                        'score_statistics': bias_analysis['score_statistics'],
+                        'recommendations': bias_analysis['recommendations'],
+                        'overall_assessment': bias_detector._get_overall_assessment(bias_analysis)
+                    }
+                )
 
             # Mark run complete
             run.status = RankingRunStatus.COMPLETED

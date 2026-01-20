@@ -12,8 +12,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import "./app.css";
-
+import "./app.css";import { clearAuthTokens } from "./utils/auth";
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -54,10 +53,52 @@ export default function App() {
     location.pathname === "/login" ||
     location.pathname === "/register";
 
+  // Protected routes - require authentication
+  const publicRoutes = ["/", "/login", "/register"];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
+
+    // Check authentication for protected routes
+    if (!isPublicRoute) {
+      const token = localStorage.getItem("access_token") || sessionStorage.getItem("access");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+      
+      // Verify token is valid by making a test API call
+      const verifyToken = async () => {
+        try {
+          const response = await fetch("/api/candidates/", {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          
+          if (response.status === 401 || response.status === 403) {
+            // Token is invalid or expired
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            sessionStorage.removeItem("access");
+            sessionStorage.removeItem("refresh");
+            sessionStorage.removeItem("user");
+            navigate("/login");
+            return;
+          }
+        } catch (error) {
+          // Network error - don't redirect, just log
+          console.error("Token verification failed:", error);
+        }
+      };
+      
+      verifyToken();
+    }
+
     const raw = sessionStorage.getItem("user");
     if (!raw) {
       setUserLabel("Guest");
@@ -69,14 +110,10 @@ export default function App() {
     } catch {
       setUserLabel("User");
     }
-  }, [location.pathname]);
+  }, [location.pathname, navigate, isPublicRoute]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem("access");
-    sessionStorage.removeItem("refresh");
-    sessionStorage.removeItem("user");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    clearAuthTokens();
     navigate("/login");
   };
 
@@ -118,6 +155,12 @@ export default function App() {
               to="/search"
             >
               Search
+            </Link>
+            <Link
+              className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
+              to="/audit"
+            >
+              Audit
             </Link>
             <Link
               className="rounded-full px-3 py-1 font-medium text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-200"
