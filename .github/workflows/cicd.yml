@@ -18,7 +18,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: ${{ vars.POSTGRES_DB }}
           POSTGRES_USER: ${{ vars.POSTGRES_USER }}
@@ -26,7 +26,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U cv_filter -d cv_filter"
+          --health-cmd="pg_isready -U ${{ vars.POSTGRES_USER }} -d ${{ vars.POSTGRES_DB }}"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
