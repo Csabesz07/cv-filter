@@ -7,6 +7,7 @@ __pycache__/
 *.py[cod]
 .env
 db.sqlite3
+*.log
 
 test_extractor.py
 test_entity_extractor.py

@@ -10,7 +10,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0001_initial'),
+        ('accounts', '0002_enable_pgvector'),
         ('auth', '0012_alter_user_first_name_max_length'),
     ]
 
