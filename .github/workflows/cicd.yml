@@ -32,14 +32,14 @@ jobs:
           --health-retries=10
 
     env:
-      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
-      DJANGO_DEBUG: ${{ vars.DJANGO_DEBUG }}
-      DJANGO_ALLOWED_HOSTS: ${{ vars.DJANGO_ALLOWED_HOSTS }}
-      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
-      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      POSTGRES_HOST: ${{ vars.POSTGRES_HOST }}
-      POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY || 'test-secret-key-for-ci-only-do-not-use-in-production' }}
+      DJANGO_DEBUG: ${{ vars.DJANGO_DEBUG || 'True' }}
+      DJANGO_ALLOWED_HOSTS: ${{ vars.DJANGO_ALLOWED_HOSTS || '*' }}
+      POSTGRES_DB: cv_filter
+      POSTGRES_USER: cv_filter
+      POSTGRES_PASSWORD: test_password_123
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
 
     steps:
       - uses: actions/checkout@v4
