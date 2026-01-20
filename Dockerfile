@@ -15,11 +15,11 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY frontend/cv-filter-fe/package*.json /app/frontend/cv-filter-fe/
-RUN npm --prefix /app/frontend/cv-filter-fe ci
+COPY apps/web/package*.json /app/apps/web/
+RUN npm --prefix /app/apps/web ci
 
 COPY . /app
 
 EXPOSE 8000 5173
 
-CMD ["sh", "-c", "npm --prefix /app/frontend/cv-filter-fe run dev -- --host 0.0.0.0 --port 5173 & python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
+CMD ["sh", "-c", "npm --prefix /app/apps/web run dev -- --host 0.0.0.0 --port 5173 & python apps/api/cv_filter/manage.py migrate --noinput && python apps/api/cv_filter/manage.py runserver 0.0.0.0:8000"]
