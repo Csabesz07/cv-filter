@@ -20,9 +20,9 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
-          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: cv_filter
+          POSTGRES_USER: cv_filter
+          POSTGRES_PASSWORD: test_password_123
         ports:
           - 5432:5432
         options: >-
