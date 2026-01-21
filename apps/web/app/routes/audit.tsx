@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 
 interface AuditEvent {
-  id: number;
-  timestamp: string;
+  id: string;
+  created_at: string;
   event_type: string;
   entity_type: string;
   entity_id: string | null;
-  actor_email: string | null;
+  actor_username: string | null;
   severity: string;
   description: string;
   metadata: any;
@@ -28,6 +28,15 @@ interface ScoreStatistics {
   max: number;
   skewness: number;
 }
+
+const renderJson = (value: unknown) => {
+  if (!value) return null;
+  return (
+    <pre className="mt-2 whitespace-pre-wrap rounded-md bg-slate-900/60 p-3 text-xs text-slate-200">
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+};
 
 export default function AuditDashboard() {
   const navigate = useNavigate();
@@ -88,24 +97,24 @@ export default function AuditDashboard() {
 
   const getSeverityColor = (severity: string) => {
     switch (severity.toLowerCase()) {
-      case "critical":
-        return "bg-red-100 text-red-800 border-red-300";
-      case "warning":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "info":
+      case "verbose":
+        return "bg-slate-700 text-slate-200 border-slate-600";
+      case "debug":
         return "bg-blue-100 text-blue-800 border-blue-300";
+      case "log":
+        return "bg-emerald-100 text-emerald-800 border-emerald-300";
       default:
         return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
 
   const getEventTypeIcon = (eventType: string) => {
-    if (eventType.includes("bias")) return "⚠️";
-    if (eventType.includes("started")) return "▶️";
-    if (eventType.includes("completed")) return "✅";
-    if (eventType.includes("failed")) return "❌";
-    if (eventType.includes("scored")) return "📊";
-    return "📝";
+    if (eventType.includes("bias")) return "BIAS";
+    if (eventType.includes("started")) return "START";
+    if (eventType.includes("completed")) return "DONE";
+    if (eventType.includes("failed")) return "FAIL";
+    if (eventType.includes("scored")) return "SCORE";
+    return "EVENT";
   };
 
   const renderBiasDetails = (event: AuditEvent) => {
@@ -121,7 +130,7 @@ export default function AuditDashboard() {
         {biasIndicators.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
             <h4 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
-              ⚠️ Bias Indicators Detected ({biasIndicators.length})
+              Bias Indicators Detected ({biasIndicators.length})
             </h4>
             <div className="space-y-2">
               {biasIndicators.map((alert: BiasAlert, idx: number) => (
@@ -148,7 +157,7 @@ export default function AuditDashboard() {
         {/* Score Statistics */}
         {stats && (
           <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-3">
-            <h4 className="font-semibold text-blue-300 mb-2">📊 Score Distribution</h4>
+            <h4 className="font-semibold text-blue-300 mb-2">Score Distribution</h4>
             <div className="grid grid-cols-3 gap-2 text-sm">
               <div>
                 <span className="text-slate-400">Mean:</span>{" "}
@@ -183,12 +192,62 @@ export default function AuditDashboard() {
         {/* Recommendations */}
         {recommendations.length > 0 && (
           <div className="bg-green-900/30 border border-green-700/50 rounded-lg p-3">
-            <h4 className="font-semibold text-green-300 mb-2">💡 Recommendations</h4>
+            <h4 className="font-semibold text-green-300 mb-2">Recommendations</h4>
             <ul className="list-disc list-inside space-y-1 text-sm text-slate-300">
               {recommendations.map((rec: string, idx: number) => (
                 <li key={idx}>{rec}</li>
               ))}
             </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDecisionDetails = (event: AuditEvent) => {
+    if (!event.event_type.includes("ranking.candidate.scored")) return null;
+
+    const details = event.metadata?.details || {};
+    const inputData = details.input_data || null;
+
+    return (
+      <div className="mt-4 rounded-lg border border-slate-700/70 bg-slate-900/50 p-4">
+        <h4 className="text-sm font-semibold text-slate-200">Decision Details</h4>
+        <div className="mt-2 grid grid-cols-1 gap-3 text-sm text-slate-300 md:grid-cols-3">
+          <div>
+            <span className="text-slate-400">Candidate ID:</span>{" "}
+            <span className="font-mono">{event.metadata?.candidate_id || "-"}</span>
+          </div>
+          <div>
+            <span className="text-slate-400">Score:</span>{" "}
+            <span className="font-mono">
+              {typeof event.metadata?.score === "number"
+                ? event.metadata.score.toFixed(2)
+                : "-"}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-400">Rank:</span>{" "}
+            <span className="font-mono">{event.metadata?.rank ?? "-"}</span>
+          </div>
+        </div>
+        <div className="mt-3 text-sm text-slate-300">
+          <div className="text-slate-400">Input data used for scoring:</div>
+          {renderJson(inputData)}
+        </div>
+        {details && details.weights_used && (
+          <div className="mt-3 text-sm text-slate-300">
+            <div className="text-slate-400">Weights used:</div>
+            {renderJson(details.weights_used)}
+          </div>
+        )}
+        {details && (details.matched_items || details.missing_items) && (
+          <div className="mt-3 text-sm text-slate-300">
+            <div className="text-slate-400">Matched / Missing items:</div>
+            {renderJson({
+              matched: details.matched_items || {},
+              missing: details.missing_items || {},
+            })}
           </div>
         )}
       </div>
@@ -201,7 +260,7 @@ export default function AuditDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-100 mb-2">
-            🔍 Audit & Compliance Dashboard
+            Audit & Compliance Dashboard
           </h1>
           <p className="text-slate-400">
             Monitor ranking events, bias detection, and compliance logs
@@ -222,19 +281,14 @@ export default function AuditDashboard() {
               >
                 <option value="">All Events</option>
                 <optgroup label="Ranking Events">
+                  <option value="ranking.bias.checked">Bias Checked</option>
                   <option value="ranking.bias.detected">Bias Detected</option>
                   <option value="ranking.run.started">Run Started</option>
                   <option value="ranking.run.completed">Run Completed</option>
                   <option value="ranking.run.failed">Run Failed</option>
                   <option value="ranking.scoring.completed">Scoring Completed</option>
-                </optgroup>
-                <optgroup label="CV Events">
-                  <option value="cv.uploaded">CV Uploaded</option>
-                  <option value="cv.parsed">CV Parsed</option>
-                  <option value="cv.viewed">CV Viewed</option>
-                </optgroup>
-                <optgroup label="API Events">
-                  <option value="api.request">API Request</option>
+                  <option value="ranking.candidates.loaded">Candidates Loaded</option>
+                  <option value="ranking.candidate.scored">Candidate Scored</option>
                 </optgroup>
               </select>
             </div>
@@ -252,9 +306,6 @@ export default function AuditDashboard() {
                 <option value="log">Log</option>
                 <option value="debug">Debug</option>
                 <option value="verbose">Verbose</option>
-                <option value="info">Info</option>
-                <option value="warning">Warning</option>
-                <option value="critical">Critical</option>
               </select>
             </div>
 
@@ -289,7 +340,7 @@ export default function AuditDashboard() {
         {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-800">❌ {error}</p>
+            <p className="text-red-800">Error: {error}</p>
           </div>
         )}
 
@@ -313,7 +364,9 @@ export default function AuditDashboard() {
                 {/* Event Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl">{getEventTypeIcon(event.event_type)}</span>
+                    <span className="text-xs font-semibold text-slate-400">
+                      {getEventTypeIcon(event.event_type)}
+                    </span>
                     <div>
                       <h3 className="font-semibold text-lg text-slate-100">
                         {event.event_type}
@@ -335,13 +388,15 @@ export default function AuditDashboard() {
                   <div>
                     <span className="text-slate-400">Timestamp:</span>
                     <p className="font-mono text-xs mt-1 text-slate-300">
-                      {new Date(event.timestamp).toLocaleString()}
+                      {new Date(event.created_at).toLocaleString()}
                     </p>
                   </div>
-                  {event.actor_email && (
+                  {event.actor_username && (
                     <div>
                       <span className="text-slate-400">Actor:</span>
-                      <p className="font-medium mt-1 text-slate-300">{event.actor_email}</p>
+                      <p className="font-medium mt-1 text-slate-300">
+                        {event.actor_username}
+                      </p>
                     </div>
                   )}
                   {event.entity_id && (
@@ -358,6 +413,7 @@ export default function AuditDashboard() {
 
                 {/* Bias-specific details */}
                 {renderBiasDetails(event)}
+                {renderDecisionDetails(event)}
               </div>
             </div>
           ))}

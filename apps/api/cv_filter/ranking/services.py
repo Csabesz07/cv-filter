@@ -175,10 +175,12 @@ class RankingService:
 
             candidates_data: List[Dict[str, Any]] = []
             id_to_candidate: Dict[str, Candidate] = {}
+            id_to_candidate_data: Dict[str, Dict[str, Any]] = {}
             for cand in qs:
                 data = self.mapper.build_candidate_data(cand)
                 candidates_data.append(data)
                 id_to_candidate[str(cand.id)] = cand
+                id_to_candidate_data[str(cand.id)] = data
 
             # Execute ranking
             scoring_start = time.time()
@@ -217,9 +219,16 @@ class RankingService:
                 cand_obj = id_to_candidate.get(item["id"])  # type: ignore
                 if not cand_obj:
                     continue
+                cand_input = id_to_candidate_data.get(item["id"], {})
                     
                 score_value = item["score"]
                 all_scores.append(score_value)
+                details = item.get("details", {})
+                if isinstance(details, dict):
+                    details = {
+                        **details,
+                        "input_data": cand_input,
+                    }
                 
                 CandidateScore.objects.create(
                     organization=organization,
@@ -227,7 +236,7 @@ class RankingService:
                     candidate=cand_obj,
                     score=score_value,
                     rank=item["rank"],
-                    details_json=item.get("details", {}),
+                    details_json=details,
                     explanation=item.get("explanation", ""),
                 )
                 scores_created += 1
@@ -245,7 +254,7 @@ class RankingService:
                         'candidate_id': str(cand_obj.id),
                         'score': float(score_value),
                         'rank': item["rank"],
-                        'details': item.get("details", {}),
+                        'details': details,
                     }
                 )
             
@@ -258,6 +267,24 @@ class RankingService:
             # Bias pattern detection
             bias_detector = BiasPatternDetector()
             bias_analysis = bias_detector.analyze_score_distribution(all_scores)
+            bias_assessment = bias_detector._get_overall_assessment(bias_analysis)
+
+            # Always log bias analysis summary for traceability
+            AuditLogService.debug(
+                organization=organization,
+                event_type='ranking.bias.checked',
+                entity_type='ranking_run',
+                entity_id=run.id,
+                actor_user=created_by,
+                description=f'Bias analysis completed for ranking run {run.id}',
+                metadata={
+                    'run_id': str(run.id),
+                    'has_bias_indicators': bias_analysis['has_bias_indicators'],
+                    'score_statistics': bias_analysis.get('score_statistics', {}),
+                    'sample_size': bias_analysis.get('sample_size'),
+                    'overall_assessment': bias_assessment,
+                },
+            )
             
             # Log bias analysis if indicators detected
             if bias_analysis['has_bias_indicators']:
@@ -273,7 +300,7 @@ class RankingService:
                         'bias_indicators': bias_analysis['alerts'],
                         'score_statistics': bias_analysis['score_statistics'],
                         'recommendations': bias_analysis['recommendations'],
-                        'overall_assessment': bias_detector._get_overall_assessment(bias_analysis)
+                        'overall_assessment': bias_assessment,
                     }
                 )
 
@@ -300,6 +327,7 @@ class RankingService:
                     'total_duration_seconds': round(total_duration, 2),
                     'scoring_duration_seconds': round(scoring_duration, 2),
                     'score_statistics': score_stats,
+                    'bias_assessment': bias_assessment,
                     'started_at': run.started_at.isoformat() if run.started_at else None,
                     'completed_at': run.completed_at.isoformat() if run.completed_at else None,
                 }
