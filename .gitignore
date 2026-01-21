@@ -2,13 +2,35 @@
 .pixi/*
 !.pixi/config.toml
 
-# Local artifacts
+# Python
 __pycache__/
 *.py[cod]
-.env
-db.sqlite3
-*.log
+*.pyc
+.venv/
+venv/
 
+# Environment
+.env
+
+# Database
+db.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Uploads & samples (runtime generated)
+uploads/
+samples/
+
+# Test files
 test_extractor.py
 test_entity_extractor.py
 test_summarizer.py
+
+# Lock files
+pixi.lock
+
+# IDE
+.vscode/
+.idea/

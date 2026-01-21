@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 
 import type { Route } from "./+types/document-extraction";
 
@@ -80,6 +81,7 @@ function isLikelyUrl(value: string) {
 }
 
 export default function DocumentExtraction() {
+  const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [timeoutSeconds, setTimeoutSeconds] = useState(30);
   const [saveToFile, setSaveToFile] = useState(true);
@@ -90,6 +92,15 @@ export default function DocumentExtraction() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<ExtractResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect to login if no token
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = sessionStorage.getItem("access") || localStorage.getItem("access_token");
+    if (!token) {
+      navigate("/login");
+    }
+  }, [navigate]);
 
   const tokenWarning = useMemo(() => {
     if (typeof window === "undefined") return false;

@@ -736,7 +736,11 @@ class CandidateListCreateView(APIView):
 
     def get(self, request):
         organization = request.user.organization
+        
+        # Job seekers (individuals) don't have organizations, return empty list
         if not organization:
+            if hasattr(request.user, 'user_type') and request.user.user_type == 'job_seeker':
+                return Response({'results': []})
             return Response(
                 {'detail': 'User has no organization.'},
                 status=status.HTTP_403_FORBIDDEN,

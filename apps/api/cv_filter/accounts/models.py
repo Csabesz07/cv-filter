@@ -36,7 +36,18 @@ class User(AbstractUser, TimeStampedModel):
     Custom user model that stores a UUID as the primary key.
     """
 
+    USER_TYPE_CHOICES = [
+        ('employer', 'Employer/Recruiter'),
+        ('job_seeker', 'Job Seeker'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_type = models.CharField(
+        max_length=20,
+        choices=USER_TYPE_CHOICES,
+        default='employer',
+        help_text='Type of user: employer (has organization) or job seeker (individual)'
+    )
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,

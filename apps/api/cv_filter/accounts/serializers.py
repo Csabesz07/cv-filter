@@ -15,18 +15,66 @@ class RegisterSerializer(serializers.ModelSerializer):
     """
 
     password = serializers.CharField(write_only=True, validators=[validate_password])
+    user_type = serializers.ChoiceField(
+        choices=['employer', 'job_seeker'],
+        required=True,
+        help_text='employer (company/recruiter) or job_seeker (individual)'
+    )
+    organization_name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True,
+        help_text='Organization name (required for employer, ignored for job_seeker)'
+    )
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password')
+        fields = ('id', 'username', 'email', 'password', 'user_type', 'organization_name')
         read_only_fields = ('id',)
 
     def create(self, validated_data):
+        from django.utils.text import slugify
+        
+        username = validated_data['username']
+        email = validated_data.get('email', '')
+        user_type = validated_data.get('user_type', 'employer')
+        organization_name = validated_data.pop('organization_name', None)
+        validated_data.pop('user_type', None)
+        
+        organization = None
+        
+        # Only create organization for employers
+        if user_type == 'employer':
+            # Use provided organization name or generate one
+            if organization_name and organization_name.strip():
+                org_name = organization_name.strip()
+            else:
+                org_name = f"{username}'s Organization"
+            
+            org_slug = slugify(org_name)
+            
+            # Ensure unique slug
+            base_slug = org_slug
+            counter = 1
+            while Organization.objects.filter(slug=org_slug).exists():
+                org_slug = f"{base_slug}-{counter}"
+                counter += 1
+            
+            organization = Organization.objects.create(
+                name=org_name,
+                slug=org_slug
+            )
+        
+        # Create user
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email', ''),
+            username=username,
+            email=email,
             password=validated_data['password'],
         )
+        user.user_type = user_type
+        user.organization = organization
+        user.save()
+        
         return user
 
 

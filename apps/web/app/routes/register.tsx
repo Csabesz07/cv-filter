@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/register";
 import "./login.css";
@@ -17,9 +17,12 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Register() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [userType, setUserType] = useState<"employer" | "job_seeker">("employer");
+  const [organizationName, setOrganizationName] = useState("");
   const [alert, setAlert] = useState<AlertState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,6 +35,8 @@ export default function Register() {
       username: username.trim(),
       email: email.trim(),
       password,
+      user_type: userType,
+      ...(userType === "employer" ? { organization_name: organizationName.trim() } : {}),
     };
 
     try {
@@ -45,7 +50,10 @@ export default function Register() {
         | {
             detail?: string;
             username?: string[];
-            email?: string[];
+            emai_type?: string[];
+            organization_name?: string[];
+            userl?: string[];
+            password?: string[];
             user?: { username?: string; email?: string };
             access?: string;
             refresh?: string;
@@ -58,10 +66,15 @@ export default function Register() {
       }
 
       if (!response.ok) {
+        // Log full error for debugging
+        console.error("Registration error:", body);
+        
         const message =
           body?.detail ||
           body?.username?.[0] ||
           body?.email?.[0] ||
+          body?.password?.[0] ||
+          (typeof body === 'object' ? JSON.stringify(body) : null) ||
           "Registration failed";
         setAlert({ type: "error", message });
         return;
@@ -81,7 +94,12 @@ export default function Register() {
       }
       if (body?.refresh) {
         sessionStorage.setItem("refresh", body.refresh);
-        localStorage.setItem("refresh_token", body.refresh);
+       
+      
+      // Redirect to home after successful registration
+      setTimeout(() => {
+        navigate("/home");
+      }, 1500); localStorage.setItem("refresh_token", body.refresh);
       }
     } catch {
       setAlert({
@@ -108,6 +126,34 @@ export default function Register() {
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          <div>
+            <label htmlFor="user-type">I am a</label>
+            <select
+              id="user-type"
+              name="user_type"
+              required
+              value={userType}
+              onChange={(event) => setUserType(event.target.value as "employer" | "job_seeker")}
+            >
+              <option value="employer">Employer / Recruiter (Company)</option>
+              <option value="job_seeker">Job Seeker (Individual)</option>
+            </select>
+          </div>
+          {userType === "employer" && (
+            <div>
+              <label htmlFor="organization-name">Company / Organization Name</label>
+              <input
+                id="organization-name"
+                name="organization_name"
+                placeholder="Acme Inc."
+                value={organizationName}
+                onChange={(event) => setOrganizationName(event.target.value)}
+              />
+              <small style={{ color: "#666", fontSize: "0.85em" }}>
+                Leave empty to use "{username || "your username"}'s Organization"
+              </small>
+            </div>
+          )}
           <div>
             <label htmlFor="username">Username</label>
             <input
