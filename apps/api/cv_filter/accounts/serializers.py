@@ -186,6 +186,7 @@ class CVUploadSerializer(serializers.ModelSerializer):
     file = serializers.FileField(write_only=True, required=True)
     candidate_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     candidate_email = serializers.EmailField(write_only=True, required=False, allow_null=True)
+    auto_create_candidate = serializers.BooleanField(write_only=True, required=False, default=False)
     candidate = CandidateBasicSerializer(read_only=True)
 
     class Meta:
@@ -195,6 +196,7 @@ class CVUploadSerializer(serializers.ModelSerializer):
             'file',
             'candidate_id',
             'candidate_email',
+            'auto_create_candidate',
             'candidate',
             'organization',
             'original_filename',
@@ -225,11 +227,12 @@ class CVUploadSerializer(serializers.ModelSerializer):
         file = data.get('file')
         candidate_id = data.get('candidate_id')
         candidate_email = data.get('candidate_email')
+        auto_create = data.get('auto_create_candidate', False)
 
-        # Validate that either candidate_id or candidate_email is provided
-        if not candidate_id and not candidate_email:
+        # Validate that either candidate_id, candidate_email, or auto_create is provided
+        if not candidate_id and not candidate_email and not auto_create:
             raise serializers.ValidationError(
-                "Either 'candidate_id' or 'candidate_email' must be provided."
+                "Either 'candidate_id', 'candidate_email', or 'auto_create_candidate' must be provided."
             )
 
         # Validate file type

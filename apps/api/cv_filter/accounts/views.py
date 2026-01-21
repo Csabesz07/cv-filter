@@ -131,6 +131,54 @@ class CVUploadView(APIView):
         except Candidate.DoesNotExist:
             raise ValueError(f"Candidate not found in organization {organization.id}.")
 
+    def _extract_candidate_from_cv(self, file_path, organization):
+        """
+        Extract candidate information from CV file.
+        Returns a tuple of (first_name, last_name, email, phone, entities).
+        """
+        try:
+            # Extract text from CV
+            extraction = CVTextExtractor(timeout_seconds=30, save_to_file=False).extract_text(file_path)
+            
+            if not extraction.get('success') or not extraction.get('text'):
+                raise ValueError("Failed to extract text from CV")
+            
+            # Extract entities
+            entity_extractor = CVEntityExtractor()
+            entities = entity_extractor.extract_entities(extraction.get('text'))
+            
+            # Get email (required)
+            email = entities.email[0] if entities.email else None
+            if not email:
+                raise ValueError("No email found in CV")
+            
+            # Get phone
+            phone = entities.phone[0] if entities.phone else None
+            
+            # Try to extract name from text (simple heuristic)
+            # This is a basic implementation - you might want to improve this
+            text_lines = extraction.get('text').split('\n')
+            first_name = "Unknown"
+            last_name = "Candidate"
+            
+            # Look for name in first few lines
+            for line in text_lines[:5]:
+                line = line.strip()
+                # Skip empty lines and lines with only special characters
+                if not line or len(line.split()) > 4:
+                    continue
+                # Assume name is 2-4 words
+                words = line.split()
+                if 2 <= len(words) <= 4 and not any(char in line for char in ['@', 'http', '+']):
+                    first_name = words[0]
+                    last_name = ' '.join(words[1:]) if len(words) > 1 else words[0]
+                    break
+            
+            return first_name, last_name, email, phone, entities
+            
+        except Exception as e:
+            raise ValueError(f"Failed to extract candidate info: {str(e)}")
+
     def _save_uploaded_file(self, file, organization, candidate):
         """
         Save uploaded file to disk.
@@ -152,6 +200,7 @@ class CVUploadView(APIView):
     def post(self, request):
         """
         Handle CV file upload with validation and idempotent behavior.
+        Supports automatic candidate creation from CV if auto_create_candidate=true.
         """
         try:
             # Get organization from authenticated user
@@ -162,12 +211,79 @@ class CVUploadView(APIView):
         # Extract candidate lookup parameters
         candidate_id = request.data.get('candidate_id')
         candidate_email = request.data.get('candidate_email')
+        auto_create = request.data.get('auto_create_candidate', 'false')
+        auto_create_flag = auto_create in ('true', 'True', '1', True)
 
-        # Get candidate
-        try:
-            candidate = self._get_candidate(organization, candidate_id, candidate_email)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        # Get or create candidate
+        candidate = None
+        candidate_created = False
+        
+        if candidate_id or candidate_email:
+            # Try to find existing candidate
+            try:
+                candidate = self._get_candidate(organization, candidate_id, candidate_email)
+            except ValueError as e:
+                if not auto_create_flag:
+                    return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        
+        # If no candidate found/specified and auto_create is enabled
+        if not candidate and auto_create_flag:
+            # Validate serializer first to get the file
+            serializer = CVUploadSerializer(data=request.data)
+            if not serializer.is_valid():
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"CV Upload validation failed: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            file = serializer.validated_data['file']
+            
+            # Save file temporarily to extract data
+            temp_dir = Path('/app/uploads/temp')
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            temp_path = temp_dir / file.name
+            
+            with open(temp_path, 'wb+') as destination:
+                for chunk in file.chunks():
+                    destination.write(chunk)
+            
+            try:
+                # Extract candidate info from CV
+                first_name, last_name, email, phone, entities = self._extract_candidate_from_cv(
+                    str(temp_path), organization
+                )
+                
+                # Check if candidate with this email already exists
+                candidate = Candidate.objects.filter(
+                    organization=organization,
+                    email=email
+                ).first()
+                
+                if not candidate:
+                    # Create new candidate
+                    candidate = Candidate.objects.create(
+                        organization=organization,
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        phone=phone,
+                        status='new',
+                    )
+                    candidate_created = True
+                
+                # Reset file pointer for later use
+                file.seek(0)
+                
+            finally:
+                # Clean up temp file
+                if temp_path.exists():
+                    temp_path.unlink()
+        
+        if not candidate:
+            return Response(
+                {'error': 'No candidate specified. Provide candidate_id, candidate_email, or set auto_create_candidate=true'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Validate serializer
         serializer = CVUploadSerializer(data=request.data)
@@ -319,6 +435,9 @@ class CVUploadView(APIView):
         return Response(
             {
                 **response_serializer.data,
+                'candidate_created': candidate_created,
+                'candidate_id': str(candidate.id),
+                'candidate_name': f"{candidate.first_name} {candidate.last_name}",
                 'success': extraction.get('success', False),
                 'extracted_text': extraction.get('text', ''),
                 'metadata': extraction.get('metadata', {}),

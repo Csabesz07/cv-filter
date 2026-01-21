@@ -10,6 +10,9 @@ type ExtractResponse = {
   output_file?: string | null;
   error?: string;
   id?: string;
+  candidate_created?: boolean;
+  candidate_id?: string;
+  candidate_name?: string;
   candidate?: {
     id?: string;
     first_name?: string;
@@ -163,12 +166,12 @@ export default function DocumentExtraction() {
     formData.append("file", file);
     formData.append("timeout_seconds", String(timeoutSeconds));
     formData.append("save_to_file", saveToFile ? "true" : "false");
+    
+    // If candidate selected, use it; otherwise auto-create from CV
     if (selectedCandidateId) {
       formData.append("candidate_id", selectedCandidateId);
     } else {
-      setError("Select a candidate before extracting.");
-      setIsSubmitting(false);
-      return;
+      formData.append("auto_create_candidate", "true");
     }
 
     const headers: HeadersInit = {};
@@ -207,11 +210,12 @@ export default function DocumentExtraction() {
       if (body && !body.metadata) {
         body.metadata = {
           id: body.id || "-",
-          candidate: body.candidate
+          candidate_created: body.candidate_created ? "Yes (Auto-created)" : "No",
+          candidate: body.candidate_name || (body.candidate
             ? `${body.candidate.first_name || ""} ${body.candidate.last_name || ""}`.trim() ||
               body.candidate.email ||
               "-"
-            : "-",
+            : "-"),
           organization: body.organization || "-",
           original_filename: body.original_filename || "-",
           mime_type: body.mime_type || "-",
@@ -280,6 +284,16 @@ export default function DocumentExtraction() {
           </div>
         ) : null}
 
+        {result?.candidate_created ? (
+          <div className="mb-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+            ✓ New candidate created: <strong>{result.candidate_name}</strong>
+          </div>
+        ) : result && !selectedCandidateId ? (
+          <div className="mb-6 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-100">
+            ℹ Existing candidate found: <strong>{result.candidate_name}</strong> — CV attached to this candidate
+          </div>
+        ) : null}
+
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
             <div>
@@ -324,15 +338,15 @@ export default function DocumentExtraction() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-200">
-                  Candidate
+                  Candidate (Optional)
                 </label>
                 <select
                   value={selectedCandidateId}
                   onChange={(event) => setSelectedCandidateId(event.target.value)}
                   disabled={isCandidatesLoading}
-                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400 disabled:opacity-50"
                 >
-                  <option value="">Select a candidate</option>
+                  <option value="">Auto-create from CV</option>
                   {candidates.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.first_name} {candidate.last_name} • {candidate.email}
@@ -342,9 +356,9 @@ export default function DocumentExtraction() {
                 <p className="mt-2 text-xs text-slate-400">
                   {isCandidatesLoading
                     ? "Loading candidates..."
-                    : candidates.length
-                      ? "Select a candidate to associate the upload."
-                      : "No candidates found. Create one first."}
+                    : selectedCandidateId
+                      ? "CV will be attached to the selected candidate"
+                      : "If no candidate selected, one will be auto-created from CV data (email, name, phone)"}
                 </p>
               </div>
               <div>

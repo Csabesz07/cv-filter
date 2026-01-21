@@ -44,87 +44,117 @@ class SummaryTemplateBuilder:
         """Build English summary."""
         sentences = []
 
-        # Sentence 1: Professional role/positions
+        # Sentence 1: Professional role/positions with seniority
         if entities.job_titles:
             primary_role = entities.job_titles[0].title()
-            sentence1 = f"The candidate is a {primary_role}."
+            
+            # Add seniority if available
+            seniority_prefix = ""
+            if hasattr(entities, 'seniority') and entities.seniority:
+                seniority = entities.seniority[0].title() if isinstance(entities.seniority, list) else entities.seniority.title()
+                if seniority.lower() not in ['junior', 'mid', 'senior', 'lead', 'staff']:
+                    seniority_prefix = ""
+                else:
+                    seniority_prefix = f"{seniority} "
+            
+            # Add years of experience if available
+            experience_suffix = ""
+            if hasattr(entities, 'years_of_experience') and entities.years_of_experience and entities.years_of_experience > 0:
+                experience_suffix = f" with {entities.years_of_experience}+ years of experience"
+            
+            sentence1 = f"The candidate is a {seniority_prefix}{primary_role}{experience_suffix}."
+            
+            # Add additional roles if available
             if len(entities.job_titles) > 1:
+                additional_roles = [t.title() for t in entities.job_titles[1:3]]
                 sentence1 = (
-                    f"The candidate is a {primary_role} with experience in "
-                    f"{', '.join(t.title() for t in entities.job_titles[1:3])}."
+                    f"The candidate is a {seniority_prefix}{primary_role}{experience_suffix}, "
+                    f"with additional expertise as {SummaryTemplateBuilder._join_with_and(additional_roles)}."
                 )
             sentences.append(sentence1)
 
-        # Sentence 2: Technical skills (programming languages and frameworks)
-        technical_skills_parts = []
+        # Sentence 2: Technical skills with focus on primary expertise
+        skill_components = []
+        
+        # Programming languages (top 3-4 most important)
         if entities.programming_languages:
-            langs = entities.programming_languages[:5]
-            technical_skills_parts.append(
-                f"proficient in {', '.join(lang.title() for lang in langs)}"
-            )
+            langs = [lang.title() for lang in entities.programming_languages[:4]]
+            skill_components.append(f"specializes in {SummaryTemplateBuilder._join_with_and(langs)}")
+        
+        # Frameworks/technologies (top 2-3)
         if entities.frameworks:
-            frameworks = entities.frameworks[:3]
-            technical_skills_parts.append(
-                f"experienced with {', '.join(fw.title() for fw in frameworks)}"
-            )
-        if entities.databases:
-            dbs = entities.databases[:3]
-            technical_skills_parts.append(
-                f"familiar with {', '.join(db.title() for db in dbs)}"
-            )
+            frameworks = [fw.title() for fw in entities.frameworks[:3]]
+            skill_components.append(f"works with {SummaryTemplateBuilder._join_with_and(frameworks)}")
 
-        if technical_skills_parts:
-            sentence2 = f"The candidate is {', '.join(technical_skills_parts[:2])}."
+        if skill_components:
+            sentence2 = f"The candidate {' and '.join(skill_components[:2])}."
             sentences.append(sentence2)
 
-        # Sentence 3: Additional technical skills (tools, cloud platforms)
-        additional_skills = []
+        # Sentence 3: Infrastructure and tooling expertise
+        infra_parts = []
+        
         if entities.tools:
-            tools = entities.tools[:3]
-            additional_skills.append(
-                f"tools such as {', '.join(tool.title() for tool in tools)}"
-            )
+            tools = [tool.title() for tool in entities.tools[:3]]
+            infra_parts.append(f"experienced with {SummaryTemplateBuilder._join_with_and(tools)}")
+        
         if entities.cloud_platforms:
-            clouds = entities.cloud_platforms[:2]
-            additional_skills.append(
-                f"cloud platforms including {', '.join(c.title() for c in clouds)}"
-            )
+            clouds = [c.upper() if c.lower() in ['aws', 'gcp', 'azure'] else c.title() for c in entities.cloud_platforms[:2]]
+            infra_parts.append(f"proficient in {SummaryTemplateBuilder._join_with_and(clouds)}")
+        
+        if entities.databases:
+            dbs = [db.upper() if len(db) <= 5 else db.title() for db in entities.databases[:2]]
+            infra_parts.append(f"works with {SummaryTemplateBuilder._join_with_and(dbs)}")
 
-        if additional_skills:
-            sentence3 = (
-                f"The candidate has experience with " f"{', '.join(additional_skills)}."
-            )
+        if infra_parts:
+            sentence3 = f"Technical stack includes {', '.join(infra_parts[:2])}."
             sentences.append(sentence3)
 
-        # Sentence 4: Qualifications (education and certifications)
-        qualifications = []
+        # Sentence 4: Education and certifications
+        qual_parts = []
+        
         if entities.degrees:
-            degrees_text = ", ".join(d.title() for d in entities.degrees[:2])
-            qualifications.append(f"holds {degrees_text}")
+            # Filter out incomplete/invalid degrees
+            valid_degrees = [d.title() for d in entities.degrees[:2] if d and len(d) > 2]
+            if valid_degrees:
+                qual_parts.append(f"holds a {SummaryTemplateBuilder._join_with_and(valid_degrees)} degree")
+        
         if entities.certifications:
-            certs_text = ", ".join(
-                c.title() if c else "relevant certifications"
-                for c in entities.certifications[:2]
-            )
-            qualifications.append(f"has {certs_text}")
+            # Filter out incomplete certifications and fix common issues
+            valid_certs = []
+            for cert in entities.certifications[:2]:
+                if cert and len(cert) > 2:
+                    # Skip incomplete certifications like "Ng"
+                    cert_clean = cert.strip()
+                    if len(cert_clean) <= 3 and not cert_clean.isupper():
+                        continue
+                    valid_certs.append(cert.title())
+            
+            if valid_certs:
+                qual_parts.append(f"certified in {SummaryTemplateBuilder._join_with_and(valid_certs)}")
 
-        if qualifications:
-            sentence4 = f"The candidate {', '.join(qualifications)}."
+        if qual_parts:
+            sentence4 = f"The candidate {SummaryTemplateBuilder._join_with_and(qual_parts)}."
             sentences.append(sentence4)
 
-        # Sentence 5: Soft skills and languages (if available)
+        # Sentence 5: Languages and soft skills
         additional_info = []
-        if entities.soft_skills:
-            soft = entities.soft_skills[:3]
-            additional_info.append(f"demonstrates {', '.join(s.title() for s in soft)}")
-        if entities.languages:
-            langs = entities.languages[:3]
-            additional_info.append(
-                f"communicates in {', '.join(lang.title() for lang in langs)}"
-            )
+        
+        if entities.languages and len(entities.languages) > 0:
+            # Filter out invalid language entries
+            valid_langs = [lang.title() for lang in entities.languages[:3] if lang and len(lang) > 1]
+            if valid_langs:
+                if len(valid_langs) == 1:
+                    additional_info.append(f"fluent in {valid_langs[0]}")
+                else:
+                    additional_info.append(f"speaks {SummaryTemplateBuilder._join_with_and(valid_langs)}")
+        
+        if entities.soft_skills and len(sentences) < 4:
+            soft = [s.lower() for s in entities.soft_skills[:2]]
+            if soft:
+                additional_info.append(f"demonstrates strong {SummaryTemplateBuilder._join_with_and(soft)} skills")
 
         if additional_info and len(sentences) < 5:
-            sentence5 = f"The candidate {', '.join(additional_info[:1])}."
+            sentence5 = f"The candidate {SummaryTemplateBuilder._join_with_and(additional_info[:2])}."
             sentences.append(sentence5)
 
         # Ensure we have at least 3 sentences
@@ -142,15 +172,36 @@ class SummaryTemplateBuilder:
         """Build Hungarian summary."""
         sentences = []
 
-        # Sentence 1: Professional role/positions
+        # Sentence 1: Professional role/positions with seniority
         if entities.job_titles:
             primary_role = entities.job_titles[0].title()
-            sentence1 = f"A jelölt {primary_role} pozícióban dolgozik."
+            
+            # Add seniority if available
+            seniority_prefix = ""
+            if hasattr(entities, 'seniority') and entities.seniority:
+                seniority = entities.seniority[0].title() if isinstance(entities.seniority, list) else entities.seniority.title()
+                seniority_map = {
+                    'junior': 'Junior',
+                    'mid': 'Középhaladó',
+                    'senior': 'Senior',
+                    'lead': 'Vezető',
+                    'staff': 'Senior'
+                }
+                seniority_prefix = seniority_map.get(seniority.lower(), "") + " " if seniority.lower() in seniority_map else ""
+            
+            # Add years of experience
+            experience_suffix = ""
+            if hasattr(entities, 'years_of_experience') and entities.years_of_experience and entities.years_of_experience > 0:
+                experience_suffix = f", {entities.years_of_experience}+ év tapasztalattal"
+            
+            sentence1 = f"A jelölt {seniority_prefix}{primary_role}{experience_suffix}."
+            
+            # Add additional roles
             if len(entities.job_titles) > 1:
+                additional_roles = [t.title() for t in entities.job_titles[1:3]]
                 sentence1 = (
-                    f"A jelölt {primary_role} pozícióban dolgozik, "
-                    f"tapasztalattal rendelkezik a következő területeken: "
-                    f"{', '.join(t.title() for t in entities.job_titles[1:3])}."
+                    f"A jelölt {seniority_prefix}{primary_role}{experience_suffix}, "
+                    f"szaktudással rendelkezik {SummaryTemplateBuilder._join_with_and_hu(additional_roles)} területén is."
                 )
             sentences.append(sentence1)
 
@@ -197,19 +248,29 @@ class SummaryTemplateBuilder:
             sentences.append(sentence3)
 
         # Sentence 4: Qualifications (education and certifications)
-        qualifications = []
+        qual_parts = []
+        
         if entities.degrees:
-            degrees_text = ", ".join(d.title() for d in entities.degrees[:2])
-            qualifications.append(f"{degrees_text} végzettséggel rendelkezik")
+            # Filter out incomplete/invalid degrees
+            valid_degrees = [d.title() for d in entities.degrees[:2] if d and len(d) > 2]
+            if valid_degrees:
+                qual_parts.append(f"{SummaryTemplateBuilder._join_with_and_hu(valid_degrees)} végzettséggel rendelkezik")
+        
         if entities.certifications:
-            certs_text = ", ".join(
-                c.title() if c else "releváns tanúsítványok"
-                for c in entities.certifications[:2]
-            )
-            qualifications.append(f"rendelkezik {certs_text}")
+            # Filter out incomplete certifications
+            valid_certs = []
+            for cert in entities.certifications[:2]:
+                if cert and len(cert) > 2:
+                    cert_clean = cert.strip()
+                    if len(cert_clean) <= 3 and not cert_clean.isupper():
+                        continue
+                    valid_certs.append(cert.title())
+            
+            if valid_certs:
+                qual_parts.append(f"{SummaryTemplateBuilder._join_with_and_hu(valid_certs)} tanúsítvánnyal rendelkezik")
 
-        if qualifications:
-            sentence4 = f"A jelölt {', '.join(qualifications)}."
+        if qual_parts:
+            sentence4 = f"A jelölt {SummaryTemplateBuilder._join_with_and_hu(qual_parts)}."
             sentences.append(sentence4)
 
         # Sentence 5: Soft skills and languages (if available)
@@ -257,3 +318,41 @@ class SummaryTemplateBuilder:
             return f"{', '.join(limited[:-1])}, and {limited[-1]}"
         else:
             return limited[0]
+
+    @staticmethod
+    def _join_with_and(items: List[str]) -> str:
+        """
+        Join a list of items with commas and 'and'.
+        
+        Args:
+            items: List of items to join
+            
+        Returns:
+            Formatted string (e.g., "A, B, and C" or "A and B" or "A")
+        """
+        if not items:
+            return ""
+        if len(items) == 1:
+            return items[0]
+        if len(items) == 2:
+            return f"{items[0]} and {items[1]}"
+        return f"{', '.join(items[:-1])}, and {items[-1]}"
+
+    @staticmethod
+    def _join_with_and_hu(items: List[str]) -> str:
+        """
+        Join a list of items with commas and 'és' (Hungarian).
+        
+        Args:
+            items: List of items to join
+            
+        Returns:
+            Formatted string (e.g., "A, B és C" or "A és B" or "A")
+        """
+        if not items:
+            return ""
+        if len(items) == 1:
+            return items[0]
+        if len(items) == 2:
+            return f"{items[0]} és {items[1]}"
+        return f"{', '.join(items[:-1])} és {items[-1]}"
